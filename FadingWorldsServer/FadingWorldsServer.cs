@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -44,7 +45,7 @@ namespace FadingWorldsServer {
 
 		public FadingWorldsServer() {
 			Console.WriteLine("Fading Worlds - server v" + Version + " initializing");
-			try {
+            //try {
 				Instance = this;
 
 				// Create UserDB
@@ -93,15 +94,15 @@ namespace FadingWorldsServer {
 					Update();
 					//Thread.Sleep(1);
 				}
-			}
-			catch (Exception ex) {
-				if (TCPPool != null)
-					TCPPool.SendMessageToAll("ms|system|Server fail detected, shutting down");
-				Console.WriteLine(ex.Message);
-				Console.WriteLine(ex.StackTrace);
-				Console.WriteLine(ex.ToString());
-				Console.ReadLine();
-			}
+            //}
+            //catch (Exception ex) {
+            //    if (TCPPool != null)
+            //        TCPPool.SendMessageToAll("ms|system|Server fail detected, shutting down");
+            //    Console.WriteLine(ex.Message);
+            //    Console.WriteLine(ex.StackTrace);
+            //    Console.WriteLine(ex.ToString());
+            //    Console.ReadLine();
+            //}
 		}
 
 		private void Update() {
@@ -111,7 +112,7 @@ namespace FadingWorldsServer {
 			}
 			//Console.WriteLine("Ticked at " + gt.ElapsedGameTime + " - " + GameObjects.Count);
 			lock (GameObjects) {
-				foreach (Entity gameObject in GameObjects) {
+				foreach (Entity gameObject in GameObjects.ToList()) {
 					gameObject.Update(gt);
 				}
 			}

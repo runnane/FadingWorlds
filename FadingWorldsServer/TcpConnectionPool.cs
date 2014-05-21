@@ -34,7 +34,7 @@ namespace FadingWorldsServer{
 
 		public void CheckPool(object source, ElapsedEventArgs e) {
 			//Console.WriteLine("Connections open: " + tcpPool.Count);
-			foreach (ConnectionThread c in Connections) {
+			foreach (ConnectionThread c in Connections.ToList()) {
 				if (c.SecondsSinceLastPacket > 80) {
 					c.ConsoleWrite("Closing connection, over 80 sec since last packet");
 					c.Close();

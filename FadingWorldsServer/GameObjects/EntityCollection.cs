@@ -6,79 +6,79 @@ using System.Text;
 
 namespace FadingWorldsServer.GameObjects
 {
-	public class EntityCollection : ICollection<Entity> {
-		private readonly List<Entity> _collection;
+	public class EntityCollection : List<Entity> {
+        //private readonly List<Entity> _collection;
 
-		public List<Entity> Entities
-		{
-			get { return _collection; }
-		}
+        //public List<Entity> Entities
+        //{
+        //    get { return _collection; }
+        //}
 
 
-		public EntityCollection() {
-			_collection = new List<Entity>();
-		}
+        //public EntityCollection() {
+        //    _collection = new List<Entity>();
+        //}
 
-		public IEnumerator<Entity> GetEnumerator() {
-			return _collection.GetEnumerator();
-		}
+        //public IEnumerator<Entity> GetEnumerator() {
+        //    return _collection.GetEnumerator();
+        //}
 
-		IEnumerator IEnumerable.GetEnumerator() {
-			return GetEnumerator();
-		}
+        //IEnumerator IEnumerable.GetEnumerator() {
+        //    return GetEnumerator();
+        //}
 
-		public void Add(Entity item) {
-			_collection.Add(item);
-		}
+        //public void Add(Entity item) {
+        //    _collection.Add(item);
+        //}
 
-		public void Clear() {
-			_collection.Clear();
-		}
+        //public void Clear() {
+        //    this.Clear();
+        //}
 
-		public bool Contains(Entity item) {
-			return _collection.Contains(item);
-		}
+        //public bool Contains(Entity item) {
+        //    return this.Contains(item);
+        //}
 
-		public void CopyTo(Entity[] array, int arrayIndex) {
-			throw new NotImplementedException();
-		}
+        //public void CopyTo(Entity[] array, int arrayIndex) {
+        //    throw new NotImplementedException();
+        //}
 
-		public bool Remove(Entity item) {
-			return _collection.Remove(item);
-		}
+        //public bool Remove(Entity item) {
+        //    return this.Remove(item);
+        //}
 
-		public int Count {
-			get { return _collection.Count; }
-		}
+        //public int Count {
+        //    get { return this.Count; }
+        //}
 
-		public bool IsReadOnly {
-			get { throw new NotImplementedException(); }
-		}
+        //public bool IsReadOnly {
+        //    get { throw new NotImplementedException(); }
+        //}
 
 
 		public Entity GetById(string id) {
-			return _collection.FirstOrDefault(ent => ent.Id == id);
+			return this.FirstOrDefault(ent => ent.Id == id);
 		}
 
 		public bool RemoveById(string id) {
-			return Remove(_collection.FirstOrDefault(ent => ent.Id == id));
+            return Remove(this.FirstOrDefault(ent => ent.Id == id));
 		}
 
 
-		public Entity this[int index] {
-			get { return _collection[index]; }
-			set { _collection[index] = value; }
-		}
+        //public Entity this[int index] {
+        //    get { return this[index]; }
+        //    set { this[index] = value; }
+        //}
 
 		public Entity this[string id] {
-			get { return _collection.FirstOrDefault(e => e.Id == id); }
+            get { return this.FirstOrDefault(e => e.Id == id); }
 			set {
 				if (this[id] == null) {
-					_collection.Add(value);
+                    this.Add(value);
 				}
 				else {
-					_collection.Remove(this[id]);
-					_collection.Add(value);
+                    this.Remove(this[id]);
+                    this.Add(value);
 				}
 			}
 		}
@@ -86,14 +86,15 @@ namespace FadingWorldsServer.GameObjects
 		public bool Remove(string o) {
 			Entity ot = GetById(o);
 			if (ot != null) {
-				return _collection.Remove(ot);
+                return this.Remove(ot);
 			}
 			return false;
 		}
 
 		public string MakeDump() {
 			String sb = "";
-			foreach (Entity entity in _collection) {
+            foreach (Entity entity in this)
+            {
 				sb += entity.Id + "/" + entity.Position.X + "/" + entity.Position.Y + "/" + entity.GetType().ToString() + "#";
 			}
 			return sb;

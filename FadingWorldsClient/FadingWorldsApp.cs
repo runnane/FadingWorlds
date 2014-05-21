@@ -71,7 +71,7 @@ namespace FadingWorldsClient
 			parms = strings;
 			Instance = this;
 			_graphics = new GraphicsDeviceManager(this);
-			Content.RootDirectory = "Content";
+            Content.RootDirectory = "Content";
 
 			_graphics.PreferredBackBufferWidth = Screenwidth;
 			_graphics.PreferredBackBufferHeight = Screenheight;
@@ -115,7 +115,7 @@ namespace FadingWorldsClient
 
 			Fonts["Benegraphic"] = Content.Load<SpriteFont>("Benegraphic");
 			Fonts["Tempesta"] = Content.Load<SpriteFont>("Tempesta10");
-			Fonts["Tempesta7"] = Content.Load<SpriteFont>("Tempesta7");
+			Fonts["Tempesta7"] = Content.Load<SpriteFont>("Tempesta7"); 
 
 			EmptyTexture = new Texture2D(GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
 			EmptyTexture.SetData(new[] {Color.White});

@@ -124,7 +124,7 @@ namespace FadingWorldsServer.GameObjects.Living
 
 		internal AttackResult Attack(Position2D pos) {
 			LivingEntity target =
-				FadingWorldsServer.Instance.TheGrid.GetBlockAt(pos).Entities.Entities.SingleOrDefault() as LivingEntity;
+				FadingWorldsServer.Instance.TheGrid.GetBlockAt(pos).Entities.SingleOrDefault() as LivingEntity;
 			if (target == null)
 				return AttackResult.InvalidAttack;
 			return Attack(target);
@@ -245,7 +245,7 @@ namespace FadingWorldsServer.GameObjects.Living
 
 		internal virtual AttackResult TryAttack(Position2D pos) {
 			LivingEntity targetEntity =
-				FadingWorldsServer.Instance.TheGrid.GetBlockAt(pos).Entities.Entities.SingleOrDefault() as LivingEntity;
+				FadingWorldsServer.Instance.TheGrid.GetBlockAt(pos).Entities.SingleOrDefault() as LivingEntity;
 			if (targetEntity != null) {
 				return TryAttack(targetEntity);
 			}

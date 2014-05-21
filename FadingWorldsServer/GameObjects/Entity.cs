@@ -21,7 +21,7 @@ namespace FadingWorldsServer.GameObjects
 
 			op.X -= 1;
 			if (FadingWorldsServer.Instance.TheGrid.GetBlockAt(op) != null &&
-			    FadingWorldsServer.Instance.TheGrid.GetBlockAt(op).Entities.Entities.Any(e => e.EntityType == EntityType.Player)) {
+			    FadingWorldsServer.Instance.TheGrid.GetBlockAt(op).Entities.Any(e => e.EntityType == EntityType.Player)) {
 				return op;
 			}
 			op.X += 2;
