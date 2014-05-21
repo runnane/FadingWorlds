@@ -61,8 +61,10 @@ namespace FadingWorldsServer.GameObjects
 			// done
 		}
 
-		public string MakeDump() {
-			string s = Width + "|" + Height + "|";
+		public string DumpMapBlocks()
+		{
+		    string s = "";
+            //string s = Width + "|" + Height + "|";
 			foreach (List<Block> blocks in Matrix) {
 				foreach (Block block in blocks) {
 					s += block.Type.ToString().Substring(0, 1);

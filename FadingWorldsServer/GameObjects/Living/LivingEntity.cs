@@ -136,7 +136,14 @@ namespace FadingWorldsServer.GameObjects.Living
 			}
 
 			Health -= i;
-			FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/hp/-" + i + "/" + Health);
+		    FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload
+		    {
+		        Type = PayloadType.EntityChange,
+		        Params = {Id, "hp", "-" + i, "" + Health}
+		    });
+        
+
+            //FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/hp/-" + i + "/" + Health);
 			if (Health <= 0) {
 				Health = 0;
 				OnDeath();
@@ -153,12 +160,23 @@ namespace FadingWorldsServer.GameObjects.Living
 				i = MaxHealth - Health;
 			}
 			Health += i;
-			FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/hp/" + i + "/" + Health);
+		    FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload
+		    {
+		        Type = PayloadType.EntityChange,
+		        Params = {Id, "hp", "" + i, "" + Health}
+		    });
+
+		    //FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/hp/" + i + "/" + Health);
 		}
 
 		internal void AddXP(int i) {
 			ExperiencePoints += i;
-			FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/xp/" + i + "/" + ExperiencePoints);
+		    FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload
+		    {
+		        Type = PayloadType.EntityChange,
+		        Params = {Id, "xp", "" + i, "" + ExperiencePoints}
+		    });
+		    //FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/xp/" + i + "/" + ExperiencePoints);
 		}
 
 		internal MoveResult MoveTo(Position2D newpos) {
@@ -167,7 +185,9 @@ namespace FadingWorldsServer.GameObjects.Living
 				FadingWorldsServer.Instance.TheGrid.GetBlockAt(Position).Entities.Remove(this);
 				FadingWorldsServer.Instance.TheGrid.GetBlockAt(newpos).Entities.Add(this);
 				Position = newpos;
-				FadingWorldsServer.Instance.TCPPool.SendMessageToAllButUser(Id, "mv|" + Id + "|" + newpos.X + "|" + newpos.Y);
+			    FadingWorldsServer.Instance.TCPPool.SendPayloadToAllButUser(Id,
+			        new NetworkPayload {Type = PayloadType.Move, Params = {Id, "" + newpos.X, "" + newpos.Y}});
+			    //FadingWorldsServer.Instance.TCPPool.SendMessageToAllButUser(Id, "mv|" + Id + "|" + newpos.X + "|" + newpos.Y);
 			}
 
 			PostMove(result, newpos);
@@ -314,8 +334,15 @@ namespace FadingWorldsServer.GameObjects.Living
 
 		internal virtual void PostAttack(Position2D pos, LivingEntity mob) {}
 
-		internal virtual void OnDeath() {
-			FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/die/0/0");
+		internal virtual void OnDeath()
+		{
+		    FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload
+		    {
+		        Type = PayloadType.EntityChange,
+		        Params = {Id, "die", "0", "0"}
+		    });
+    
+            //FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/die/0/0");
 			if (EntityType == EntityType.Monster) {
 				FadingWorldsServer.Instance.RemoveEntity(this);
 				FadingWorldsServer.Instance.SpawnRandomEntity();

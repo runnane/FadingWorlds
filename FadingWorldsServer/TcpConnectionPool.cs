@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
+using fwlib;
 
 namespace FadingWorldsServer{
 	public class TcpConnectionPool {
@@ -41,15 +42,15 @@ namespace FadingWorldsServer{
 				}
 				else if (c.SecondsSinceLastPacket > 60) {
 					c.ConsoleWrite("Sending ping, seconds since packet: " + c.SecondsSinceLastPacket);
-					c.SendCommand("sy|pi");
+				    c.SendPayload(new NetworkPayload {Type = PayloadType.System, Command = PayloadCommand.Ping});
 				}
 			}
 		}
 
-		public void SendMessageToAll(string str) {
+		public void SendPayloadToAll(NetworkPayload payload) {
 			foreach (ConnectionThread c in Connections) {
 				if (c.IsLoggedIn)
-					c.SendCommand(str);
+                    c.SendPayload(payload);
 			}
 		}
 
@@ -58,8 +59,6 @@ namespace FadingWorldsServer{
 			Console.WriteLine("POOL: disconnecting [" + str + "]");
 			foreach (ConnectionThread c in Connections) {
 				if (c.LoggedInUser.Username.Equals(str)) {
-					//c.Dispose();
-					//c.
 					c.Close();
 					return;
 				}
@@ -89,20 +88,21 @@ namespace FadingWorldsServer{
 			return Connections.FirstOrDefault(c => c.LoggedInUser.Username.Equals(username));
 		}
 
-		internal void SendMessageToUser(string username, string p) {
+		internal void SendPayloadToUser(string username, NetworkPayload p) {
 			foreach (ConnectionThread c in Connections) {
 				if (c.LoggedInUser.Username.Equals(username)) {
-					c.SendCommand(p);
+					c.SendPayload(p);
 					return;
 				}
 			}
 		}
 
-		internal void SendMessageToAllButUser(string username, string p) {
+        internal void SendPayloadToAllButUser(string username, NetworkPayload p)
+        {
 			foreach (ConnectionThread c in Connections) {
 				if (c != null && c.LoggedInUser != null) {
 					if (!c.LoggedInUser.Username.Equals(username)) {
-						c.SendCommand(p);
+                        c.SendPayload(p);
 					}
 				}
 			}

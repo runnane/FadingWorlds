@@ -19,8 +19,7 @@ namespace FadingWorldsClient
 	public class FadingWorldsApp : Game {
 		public static FadingWorldsApp Instance { get; set; }
 
-		private readonly GraphicsDeviceManager _graphics;
-		internal SpriteBatch SpriteBatch;
+	    internal SpriteBatch SpriteBatch;
 		internal Dictionary<string, SpriteFont> Fonts;
 		public Texture2D EmptyTexture;
 
@@ -58,7 +57,7 @@ namespace FadingWorldsClient
 		public bool GameIsWon;
 		public bool BossSpawned;
 
-		private string[] parms;
+		private readonly string[] _parms;
 
 		internal Dictionary<string, SoundEffect> Sounds;
 
@@ -66,15 +65,15 @@ namespace FadingWorldsClient
 
 
 		public FadingWorldsApp(Loader l, string[] strings) {
-			IsRunning = true;
+		    IsRunning = true;
 			IsLoaded = false;
-			parms = strings;
+			_parms = strings;
 			Instance = this;
-			_graphics = new GraphicsDeviceManager(this);
+			var graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
 
-			_graphics.PreferredBackBufferWidth = Screenwidth;
-			_graphics.PreferredBackBufferHeight = Screenheight;
+			graphics.PreferredBackBufferWidth = Screenwidth;
+			graphics.PreferredBackBufferHeight = Screenheight;
 			TheLoader = l;
 		}
 
@@ -111,7 +110,7 @@ namespace FadingWorldsClient
 
 			SpriteBatch = new SpriteBatch(GraphicsDevice);
 
-			MakeGrid(int.Parse(parms[0]), int.Parse(parms[1]), parms[2]);
+			MakeGrid(int.Parse(_parms[0]), int.Parse(_parms[1]), _parms[2]);
 
 			Fonts["Benegraphic"] = Content.Load<SpriteFont>("Benegraphic");
 			Fonts["Tempesta"] = Content.Load<SpriteFont>("Tempesta10");
@@ -119,13 +118,11 @@ namespace FadingWorldsClient
 
 			EmptyTexture = new Texture2D(GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
 			EmptyTexture.SetData(new[] {Color.White});
-			string username = TheLoader.connectionLoop.GetLoggedInUser();
+			var username = TheLoader.connectionLoop.GetLoggedInUser();
 
-			ThePlayer = new Player(Textures.Hero, username);
-			ThePlayer.Desc = username;
-			ThePlayer.Id = username;
+			ThePlayer = new Player(Textures.Hero, username) {Desc = username, Id = username};
 
-			//GameObjects.Add(ThePlayer);
+		    //GameObjects.Add(ThePlayer);
 			IsLoaded = true;
 		}
 
@@ -215,7 +212,7 @@ namespace FadingWorldsClient
 			if (GameObjects != null) {
 				lock (GameObjects) {
 					for (int i = GameObjects.Count - 1; i >= 0; i--) {
-						Entity gameObject = GameObjects[i] as Entity;
+						var gameObject = GameObjects[i] as Entity;
 						gameObject.Update(gameTime);
 					}
 				}
@@ -224,7 +221,7 @@ namespace FadingWorldsClient
 			if (TemporaryObjects != null)
 				lock (TemporaryObjects) {
 					for (int i = TemporaryObjects.Count - 1; i >= 0; i--) {
-						LimitedEntity t = TemporaryObjects[i] as LimitedEntity;
+						var t = TemporaryObjects[i] as LimitedEntity;
 						t.TimeElapsed += (float) gameTime.ElapsedGameTime.TotalSeconds;
 						t.Update(gameTime);
 
@@ -249,14 +246,14 @@ namespace FadingWorldsClient
 
 			// Blocks
 			lock (BlockObjects) {
-				foreach (Entity gameObject in BlockObjects) {
+				foreach (var gameObject in BlockObjects) {
 					gameObject.Draw(SpriteBatch);
 				}
 			}
 
 			// Players, objects etc
 			lock (GameObjects) {
-				foreach (Entity gameObject in GameObjects) {
+				foreach (var gameObject in GameObjects) {
 					gameObject.Draw(SpriteBatch);
 				}
 			}
@@ -273,7 +270,7 @@ namespace FadingWorldsClient
 
 			// temporary items
 			lock (TemporaryObjects) {
-				foreach (LimitedEntity gameObject in TemporaryObjects) {
+				foreach (var gameObject in TemporaryObjects) {
 					gameObject.Draw(SpriteBatch);
 				}
 			}
@@ -308,11 +305,13 @@ namespace FadingWorldsClient
 		}
 
 
-		protected override void OnExiting(object sender, EventArgs args) {
-			TheLoader.SetVisible(true);
-			TheLoader.Exit();
-			base.OnExiting(sender, args);
-		}
+        protected override void OnExiting(object sender, EventArgs args)
+        {
+            //TheLoader.SetVisible(true);
+            //TheLoader.Exit();
+            TheLoader.Disconnect();
+            base.OnExiting(sender, args);
+        }
 
 		public void WaitForMap() {
 			while (true) {

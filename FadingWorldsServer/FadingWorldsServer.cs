@@ -17,17 +17,7 @@ namespace FadingWorldsServer {
 
 		public string Version {
 			get {
-                //if (System.Deployment.Application.ApplicationDeployment.IsNetworkDeployed)
-                //{
-                //    System.Deployment.Application.ApplicationDeployment ad =
-                //        System.Deployment.Application.ApplicationDeployment.CurrentDeployment;
-                //    return ad.CurrentVersion.ToString();
-                //}
-                //else
-                //{
-                //    return Assembly.GetExecutingAssembly().GetName(false).Version.ToString();
-                //}
-			    return "1.0.0.0";
+			    return "1.0.0.0-mono";
 			}
 		}
 
@@ -41,7 +31,7 @@ namespace FadingWorldsServer {
 		private GameTimeLight gt;
 
 		private static void Main() {
-			new FadingWorldsServer();
+			var x = new FadingWorldsServer();
 		}
 
 		public FadingWorldsServer() {
@@ -60,7 +50,7 @@ namespace FadingWorldsServer {
 
 
 				// Add som random startmobs
-				int initialCountOfMobs = 10;
+				var initialCountOfMobs = 10;
 				GameObjects = new EntityCollection();
 				for (int i = 0; i < initialCountOfMobs; i++) {
 					var monster1 = new Skeleton();
@@ -78,7 +68,7 @@ namespace FadingWorldsServer {
 				TCPPool = new TcpConnectionPool();
 
 				// Ping check timer
-				System.Timers.Timer myTimer = new System.Timers.Timer();
+				var myTimer = new System.Timers.Timer();
 				myTimer.Elapsed += TCPPool.CheckPool;
 				myTimer.Interval = 10000;
 				myTimer.Start();
@@ -113,11 +103,11 @@ namespace FadingWorldsServer {
 			}
 			//Console.WriteLine("Ticked at " + gt.ElapsedGameTime + " - " + GameObjects.Count);
 			lock (GameObjects) {
-				foreach (Entity gameObject in GameObjects.ToList()) {
+				foreach (var gameObject in GameObjects.ToList()) {
 					gameObject.Update(gt);
 				}
 			}
-			foreach (ConnectionThread connectionThread in TCPPool.Connections) {
+			foreach (var connectionThread in TCPPool.Connections) {
 				if (connectionThread.IsLoggedIn) {
 					lock (connectionThread.LoggedInUser) {
 						connectionThread.LoggedInUser.Update(gt);
@@ -129,7 +119,7 @@ namespace FadingWorldsServer {
 
 		public void TCPConnectionHandler(Object connection) {
 			try {
-				ConnectionThread ct = new ConnectionThread((TcpClient) connection);
+				var ct = new ConnectionThread((TcpClient) connection);
 				TCPPool.Add(ref ct);
 				ct.StartListen();
 			}
@@ -150,10 +140,12 @@ namespace FadingWorldsServer {
 				Console.WriteLine("Client system on tcp://0.0.0.0:" + TCPLocalPort + " started OK (ThreadID=" +
 				                  _tcpThread.ManagedThreadId + ")");
 				while (true) {
-					TcpClient connection = serverListenerTCP.AcceptTcpClient();
-					Thread t = new Thread(TCPConnectionHandler);
-					t.Name = "Client ConnectionThread [" + connection.Client.RemoteEndPoint + "]";
-					t.Start(connection);
+					var connection = serverListenerTCP.AcceptTcpClient();
+					var t = new Thread(TCPConnectionHandler)
+					{
+					    Name = "Client ConnectionThread [" + connection.Client.RemoteEndPoint + "]"
+					};
+				    t.Start(connection);
 				}
 			}
 			catch (Exception e) {
@@ -186,7 +178,14 @@ namespace FadingWorldsServer {
 			}
 			Position2D randPos = TheGrid.FindRandomEmptyGrassBlock();
 			monster1.Position = randPos;
-			TCPPool.SendMessageToAll("da|initentity|" + monster1.MakeDump());
+		    var pld = new NetworkPayload()
+		    {
+		        Type = PayloadType.Data,
+		        Command = PayloadCommand.InitEntity,
+		        Params = {monster1.MakeDump()}
+		    };
+
+            TCPPool.SendPayloadToAll(pld);
 			TheGrid.GetBlockAt(randPos).Entities.Add(monster1);
 			lock (GameObjects) {
 				GameObjects.Add(monster1);

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -8,6 +9,7 @@ using System.Threading;
 using FadingWorldsServer.GameObjects;
 using FadingWorldsServer.GameObjects.Living;
 using fwlib;
+using ProtoBuf;
 
 namespace FadingWorldsServer{
 	internal enum ConnectionState {
@@ -19,9 +21,7 @@ namespace FadingWorldsServer{
 	public class ConnectionThread : IDisposable {
 		#region Private members
 
-		private TcpClient _client;
-		private StreamReader _clientReader;
-		private StreamWriter _clientWriter;
+		private readonly TcpClient _client;
 		private DateTime _lastPacketRecieved;
 		private DateTime _lastActivity;
 		private DateTime _loginTime = DateTime.Now;
@@ -29,13 +29,10 @@ namespace FadingWorldsServer{
 
 		private bool _isClosed = true;
 
-		private readonly char[] _delimSpace = {' '};
-		private readonly char[] _delimPipe = {'|'};
-
-		private bool _lineOccupied;
+        private bool _lineOccupied;
 		private string _clientVersion = string.Empty;
-		private readonly int _threadID;
-		private readonly string _randomConID = string.Empty;
+		private readonly int _threadId;
+		private readonly string _randomConId = string.Empty;
 
 		private ConnectionState _state;
 		public Dictionary<string, string> Variables = new Dictionary<string, string>();
@@ -46,16 +43,12 @@ namespace FadingWorldsServer{
 
 		public ConnectionThread(TcpClient c) {
 			_state = ConnectionState.NotConnected;
-			_randomConID = new Random().Next(1000000, 9999999).ToString();
+			_randomConId = new Random().Next(1000000, 9999999).ToString();
 			ConsoleWrite("New connection from " + c.Client.RemoteEndPoint);
 
 			_client = c;
 			_isClosed = false;
-			_clientReader = new StreamReader(_client.GetStream(), Encoding.GetEncoding(28591));
-			_clientWriter = new StreamWriter(_client.GetStream(), Encoding.GetEncoding(28591));
-
-
-			_threadID = Thread.CurrentThread.GetHashCode();
+			_threadId = Thread.CurrentThread.GetHashCode();
 		}
 
 		#endregion
@@ -72,8 +65,8 @@ namespace FadingWorldsServer{
 		/// <summary>
 		/// Gets current thread ID
 		/// </summary>
-		public int ThreadID {
-			get { return _threadID; }
+		public int ThreadId {
+			get { return _threadId; }
 		}
 
 		/// <summary>
@@ -93,8 +86,8 @@ namespace FadingWorldsServer{
 		/// <summary>
 		/// Gets the random generated connection id
 		/// </summary>
-		public string ConnectionID {
-			get { return _randomConID; }
+		public string ConnectionId {
+			get { return _randomConId; }
 		}
 
 		/// <summary>
@@ -102,7 +95,7 @@ namespace FadingWorldsServer{
 		/// </summary>
 		public int SecondsSinceLastPacket {
 			get {
-				TimeSpan t = (DateTime.Now - _lastPacketRecieved);
+				var t = (DateTime.Now - _lastPacketRecieved);
 				return (int) t.TotalSeconds;
 			}
 		}
@@ -112,7 +105,7 @@ namespace FadingWorldsServer{
 		/// </summary>
 		public int SecondsIdle {
 			get {
-				TimeSpan t = (DateTime.Now - _lastActivity);
+				var t = (DateTime.Now - _lastActivity);
 				return (int) t.TotalSeconds;
 			}
 		}
@@ -122,7 +115,7 @@ namespace FadingWorldsServer{
 		/// </summary>
 		public string OnlineTime {
 			get {
-				TimeSpan t = (DateTime.Now - _loginTime);
+				var t = (DateTime.Now - _loginTime);
 				return t.Days + "d " + t.Hours + "h " + t.Minutes + "m " + t.Seconds + "s";
 			}
 		}
@@ -131,7 +124,12 @@ namespace FadingWorldsServer{
 
 		public void Close() {
 			ConsoleWrite("Starting to close connection");
-			SendCommand("ms|system|Connection is being closed.");
+            SendPayload(new NetworkPayload
+            {
+                Type = PayloadType.Message,
+                Params = { "system", "Connection is being closed." }
+            });
+			
 
 			if (LoggedInUser != null)
 			{
@@ -139,32 +137,37 @@ namespace FadingWorldsServer{
 			}
 			_client.Client.Close();
 			_client.Close();
-			ConnectionThread a = this;
+			var a = this;
 			FadingWorldsServer.Instance.TCPPool.Remove(ref a);
 			if (!_isClosed && IsLoggedIn && LoggedInUser != null)
 			{
 				_isClosed = true;
-				FadingWorldsServer.Instance.TCPPool.SendMessageToAll("us|logout|" + LoggedInUser.Id);
+                FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload
+                {
+                    Type = PayloadType.User,
+                    Command = PayloadCommand.Logout,
+                    Params = { LoggedInUser.Id }
+                });
+              
+				
 				SendUserList();
 			}
 			LoggedInUser = null;
 		}
 
 		public void ConsoleWrite(string s) {
-			Console.WriteLine("[" + _threadID + "|" + _randomConID + "|" + LoggedInUser + "]> " + s);
+			Console.WriteLine("[" + _threadId + "|" + _randomConId + "|" + LoggedInUser + "]> " + s);
 		}
 
 		public void StartListen() {
 			ConsoleWrite(" Starting listening, waiting for command");
-			string input = "";
 			_lastActivity = DateTime.Now;
 			_state = ConnectionState.Connected;
-
+		    var payload = new NetworkPayload();
 			while (_client.Client.Connected && _client.GetStream().CanRead) {
 				// Wait for command
 				try {
-					input = _clientReader.ReadLine();
-					ConsoleWrite(" <- [" + input + "]");
+                    payload = Serializer.DeserializeWithLengthPrefix<NetworkPayload>(_client.GetStream(), PrefixStyle.Base128);
 				}
 				catch (IOException) {}
 				catch (ObjectDisposedException) {
@@ -174,283 +177,418 @@ namespace FadingWorldsServer{
 					Console.WriteLine(ex.ToString());
 					break;
 				}
-				if (input == null) {
-					ConsoleWrite("Connection closed at remote end");
-					break;
-				}
-				_lastPacketRecieved = DateTime.Now;
-				if (input.Trim().Length > 0 && _client.Client.Connected && _client.GetStream().CanRead) {
-					try {
-						if (!ParseIncomingCommand(input)) {
-							ConsoleWrite("ParseIncomingCommand() returned false :(");
-							break;
-						}
-					}
-					catch (Exception ex) {
-						ConsoleWrite("Exception!!" + ex);
-						SendCommand("ms|system|Your command caused the server to throw an exception (" + ex.Message + ")");
-						if (!IsLoggedIn) {
-							break;
-						}
-					}
-				}
+                if (payload == null || payload.Type == PayloadType.Unset)
+                {
+                    ConsoleWrite("Empty or unset payload, skipping.");
+                   // continue;
+                    break;
+                }
+                ConsoleWrite(" [in ] <- [" + payload + "]");
+                _lastPacketRecieved = DateTime.Now;
+			    if (!_client.Client.Connected || !_client.GetStream().CanRead) continue;
+
+			    try
+			    {
+			        if (HandlePayload(payload)) continue;
+
+			        ConsoleWrite("HandlePayload() returned false :(");
+			        break;
+			    }
+			    catch (Exception ex)
+			    {
+			        ConsoleWrite("Exception!!" + ex);
+			        SendPayload(new NetworkPayload
+			        {
+			            Type = PayloadType.Message,
+			            Params = { "system,","Your command caused the server to throw an exception (" + ex.Message + ")" }
+			        });
+			        
+			        if (!IsLoggedIn)
+			        {
+			            break;
+			        }
+			    }
 			} //while
 			Close();
 		}
 
-		private bool ParseIncomingCommand(string input) {
-			string[] parameters = {};
-			string[] primaryParts = input.Split(_delimPipe, 2);
-			if (primaryParts.Length > 1) {
-				parameters = primaryParts[1].Split(_delimPipe);
-			}
-			return HandleCode(primaryParts[0].Trim().ToLower(), parameters);
+        private bool HandlePayload(NetworkPayload payload)
+	    {
+	        if ((_state != ConnectionState.LoggedIn || !IsLoggedIn) && payload.Type != PayloadType.Auth)
+	        {
+	            ConsoleWrite("ERROR: AUTH not competed. Closing connection");
+	            return false;
+	        }
+	        _lastActivity = DateTime.Now;
+
+	        switch (payload.Type)
+	        {
+	            case PayloadType.Move:
+	                if (payload.Params.Count() == 3)
+	                {
+	                    string who = payload.Params[0]; // should be "self". TODO: fix security
+	                    int col = int.Parse(payload.Params[1]);
+	                    int row = int.Parse(payload.Params[2]);
+	                    LoggedInUser.MoveTo(new Position2D(col, row));
+	                }
+	                else
+	                {
+	                    ConsoleWrite("Error on command mv. Unknown parameter count: " + payload.Params.Count());
+	                }
+	                break;
+	            case PayloadType.Message:
+	                // Message
+	                _lastActivity = DateTime.Now;
+	                if (payload.Params.Any())
+	                {
+	                    if (payload.Params[0].Trim().Length > 0)
+	                    {
+	                        FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload
+	                        {
+	                            Type = PayloadType.Message,
+	                            Params = {LoggedInUser.ToString(), payload.Params[0]}
+	                        });
+	                        //FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ms|" + LoggedInUser + "|" + payload.Params[0].Trim());
+	                    }
+	                    else
+	                    {
+	                        // Empty message
+	                    }
+	                }
+	                else
+	                {
+	                    // no parameters??
+	                }
+
+	                break;
+	            case PayloadType.Auth:
+	                if (!payload.Params.Any())
+	                {
+	                    ConsoleWrite("Missing parametres to auth command");
+	                    return false;
+	                }
+                    string command = payload.Params[0];
+	                switch (payload.Command)
+	                {
+	                    case  PayloadCommand.Helo:
+                            if (payload.Params.Count == 1)
+	                        {
+                                string version = payload.Params[0];
+	                            _clientVersion = version;
+
+	                            //check for outdated version
+	                            //if (version == "1.0.0.0")
+	                            //{
+	                            //    SendCommand("au|oldversion");
+	                            //    return false;
+	                            //}
+	                            SendPayload(new NetworkPayload()
+	                            {
+	                                Type = PayloadType.Auth,
+	                                Command = PayloadCommand.AuthPlease
+	                            });
+	                           // SendCommand("au|authplease");
+	                            return true;
+	                        }
+	                        else
+	                        {
+	                            ConsoleWrite("Missing version to auth helo command");
+	                            return false;
+	                        }
+
+	                    case PayloadCommand.Login:
+                            if (payload.Params.Count == 2)
+	                        {
+                                string username = payload.Params[0];
+                                string password = payload.Params[1];
+	                            //string ip = _client.Client.RemoteEndPoint.ToString().Split(':')[0];
+
+	                            // Check if user exists
+	                            var users =
+	                                FadingWorldsServer.Instance.UserDB.Users.Where(
+	                                    e => e.Username.ToLower().Equals(username.ToLower()));
+	                            if (!users.Any())
+	                            {
+	                                ConsoleWrite("Unknown user: " + username);
+                                    SendPayload(new NetworkPayload()
+                                    {
+                                        Type = PayloadType.Auth,
+                                        Command = PayloadCommand.Fail
+                                    });
+	                               // SendCommand("au|failed");
+	                                return false;
+	                            }
+
+	                            var login = users.Single();
+
+	                            // Check if password is correct
+	                            if (login.Password.Equals(password))
+	                            {
+	                                // Log out if logged in already
+	                                if (FadingWorldsServer.Instance.TCPPool.IsUserLoggedIn(username))
+	                                {
+
+                                        FadingWorldsServer.Instance.TCPPool.SendPayloadToUser(username, new NetworkPayload()
+                                        {
+                                            Type = PayloadType.System,
+                                            Command = PayloadCommand.LoggedInDifferentLocation
+                                        });
+
+                                        //FadingWorldsServer.Instance.TCPPool.SendMessageToUser(username,
+                                        //    "sy|logged-in-on-another-location");
+	                                    FadingWorldsServer.Instance.TCPPool.DisconnectUser(username);
+	                                }
+
+	                                if (login.Health <= 0)
+	                                {
+	                                    login.Reset();
+	                                }
+
+	                                LoggedInUser = login;
+	                                _state = ConnectionState.LoggedIn;
+	                                ConsoleWrite("Username: " + LoggedInUser.Username);
+                                    SendPayload(new NetworkPayload()
+                                    {
+                                        Type = PayloadType.Auth,
+                                        Command = PayloadCommand.Success,
+                                        Params = { ConnectionId }
+                                    });
+	                               // SendCommand("au|ok|" + ConnectionID);
+	                                if (LoggedInUser.Position.IsInvalid)
+	                                {
+	                                    LoggedInUser.Position =
+	                                        FadingWorldsServer.Instance.TheGrid.FindRandomEmptyGrassBlock();
+	                                }
+
+
+	                                return true;
+	                            }
+	                            else
+	                            {
+	                                ConsoleWrite("Invalid password!");
+                                    SendPayload(new NetworkPayload()
+                                    {
+                                        Type = PayloadType.Auth,
+                                        Command = PayloadCommand.Fail,
+                                        
+                                    });
+	                                //SendCommand("au|failed");
+	                                return false;
+	                            }
+	                        }
+	                        else
+	                        {
+	                            ConsoleWrite("wrong number of args");
+                                SendPayload(new NetworkPayload()
+                                {
+                                    Type = PayloadType.Auth,
+                                    Command = PayloadCommand.Fail,
+
+                                });
+	                            return false;
+	                            // wrong number of args
+	                        }
+
+
+	                        //case "version":
+	                        //  if (parms.Length == 2) {
+	                        //    string version = parms[1];
+	                        //    _clientVersion = version;
+	                        //    ConsoleWrite("	- Version: " + _clientVersion);
+	                        //    SendCommand("au|ok");
+	                        //    return true;
+	                        //    //_parentProcess.PreDB.ResetObject(lgn);
+	                        //  }
+	                        //  else {
+	                        //    ConsoleWrite("wrong number of args");
+	                        //    SendCommand("au|failed");
+	                        //    return false;
+	                        //  }
+
+
+	                    default:
+	                        ConsoleWrite("unknown format on auth command ");
+                            SendPayload(new NetworkPayload()
+                            {
+                                Type = PayloadType.Auth,
+                                Command = PayloadCommand.Fail,
+
+                            });
+	                        return false;
+	                }
+	            case PayloadType.Data:
+
+	                switch (payload.Command)
+	                {
+	                    case PayloadCommand.GetMap:
+	                        SendPayload(new NetworkPayload()
+	                        {
+	                            Type = PayloadType.Data,
+	                            Command = PayloadCommand.Map,
+	                            Params =
+	                            {
+	                                FadingWorldsServer.Instance.TheGrid.Width+"",
+	                                FadingWorldsServer.Instance.TheGrid.Height+"",
+	                                FadingWorldsServer.Instance.TheGrid.DumpMapBlocks()
+	                            }
+
+	                        });
+	                        break;
+	                    case PayloadCommand.MapLoaded:
+                            SendPayload(new NetworkPayload()
+                            {
+                                Type = PayloadType.Data,
+                                Command = PayloadCommand.PleaseLoadGame,
+                             
+
+                            });
+	                       // SendCommand("da|pleaseloadgame");
+	                        break;
+	                    case PayloadCommand.GameLoaded:
+                            //FadingWorldsServer.Instance.TCPPool.SendMessageToAllButUser(LoggedInUser.Username,
+                            //    "us|login|" + LoggedInUser.MakeDump());
+                            FadingWorldsServer.Instance.TCPPool.SendPayloadToAllButUser(LoggedInUser.Username, new NetworkPayload()
+                            {
+                                Type = PayloadType.User,
+                                Command = PayloadCommand.Login,
+                                Params = { LoggedInUser.MakeDump() }
+                            });
+	                       // SendCommand("da|initplayer|" + LoggedInUser.MakeDump());
+                            SendPayload(new NetworkPayload()
+                            {
+                                Type = PayloadType.Data,
+                                Command = PayloadCommand.InitPlayer,
+                                Params = { LoggedInUser.MakeDump() }
+
+
+                            });
+	                        foreach (Entity entity in FadingWorldsServer.Instance.GameObjects)
+	                        {
+                                SendPayload(new NetworkPayload()
+                                {
+                                    Type = PayloadType.Data,
+                                    Command = PayloadCommand.InitEntity,
+                                    Params = { entity.MakeDump()}
+
+
+                                });
+	                           // SendCommand("da|initentity|" + entity.MakeDump());
+	                        }
+	                        SendUserList();
+	                        FadingWorldsServer.Instance.TheGrid.GetBlockAt(LoggedInUser.Position)
+	                            .Entities.Add(LoggedInUser);
+	                        break;
+	                }
+
+
+	                break;
+	            case PayloadType.Quit: // Pure quit message
+	                ConsoleWrite("Got quit command, so returning false on request.");
+	                return false;
+	            case PayloadType.System:
+	                if (payload.Command == PayloadCommand.Pong)
+	                {
+	                    ConsoleWrite("Replied to ping");
+	                }
+	                break;
+	            case PayloadType.Attack:
+	                if (payload.Params.Count == 3)
+	                {
+	                    string mobId = payload.Params[0];
+	                    int mobX = int.Parse(payload.Params[1]);
+	                    int mobY = int.Parse(payload.Params[2]);
+	                    ConsoleWrite("Player " + LoggedInUser.Id + " doing an attack move on " + mobId);
+	                    LoggedInUser.TryAttack(mobId);
+	                    //MoveResult x = LoggedInUser.MoveTo(new Position2D(mobX, mobY));
+
+	                    //if (subCode == "po")
+	                    //{
+	                    //  ConsoleWrite("Replied to ping");
+	                    //}
+	                }
+	                break;
+	            case PayloadType.PrivateMessage:
+	                if (payload.Params.Count() == 2)
+	                {
+	                    string target = payload.Params[0];
+	                    string message = payload.Params[1];
+                        SendPayload(new NetworkPayload()
+                        {
+                            Type = PayloadType.Message,
+                            Params = { "system", "<<pm to " + LoggedInUser + ":" + message }
+                        });
+	                   // SendCommand("ms|system|<<pm to " + LoggedInUser + ":" + message);
+                        FadingWorldsServer.Instance.TCPPool.SendPayloadToUser(target, new NetworkPayload()
+                        {
+                            Type = PayloadType.Message,
+                            Params = { "system", ">>pm from " + LoggedInUser + ":" + message }
+                        });
+                        //FadingWorldsServer.Instance.TCPPool.SendMessageToUser(target,
+                        //    "system|>>pm from " + LoggedInUser + ":" + message);
+	                }
+	                else
+	                {
+                        SendPayload(new NetworkPayload()
+                        {
+                            Type = PayloadType.Message,
+                            Params = { "system", "i'm afraid you need more than that" }
+                        });
+	                    //SendCommand("ms|system|i'm afraid you need more than that");
+	                }
+	                break;
+
+	            default:
+	                ConsoleWrite("ParseGuiCommand():  Sent unknown opCode: " + payload.Type);
+                    SendPayload(new NetworkPayload()
+                    {
+                        Type = PayloadType.Message,
+                       
+                        Params = { "system", "Unknown Command" }
+
+
+                    });
+	                //SendCommand("ms|system|unknown-cmd");
+	                break;
+	        }
+	        // Default to success
+	        return true;
+	    }
+
+
+
+
+	    public void SendUserList() {
+            FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload
+            {
+                Type = PayloadType.UserList,
+                Params = { FadingWorldsServer.Instance.TCPPool.GenerateUserList() }
+            });
+			//FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ul|" + FadingWorldsServer.Instance.TCPPool.GenerateUserList());
 		}
 
-		private bool HandleCode(string opCode, string[] parm) {
-			if ((_state != ConnectionState.LoggedIn || !IsLoggedIn) && opCode != "au") {
-				ConsoleWrite("ERROR: AUTH not competed. Closing connection");
-				return false;
-			}
-			_lastActivity = DateTime.Now;
-
-			switch (opCode) {
-				case "mv":
-					if (parm.Count() == 3) {
-						string who = parm[0]; // should be "self". TODO: fix security
-						int col = int.Parse(parm[1]);
-						int row = int.Parse(parm[2]);
-						LoggedInUser.MoveTo(new Position2D(col, row));
-					}
-					else {
-						ConsoleWrite("Error on command mv. Unknown parameter count: " + parm.Count());
-					}
-					break;
-				case "ms":
-					// Message
-					_lastActivity = DateTime.Now;
-					if (parm.Any()) {
-						if (parm[0].Trim().Length > 0) {
-							FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ms|" + LoggedInUser + "|" + parm[0].Trim());
-						}
-						else {
-							// Empty message
-						}
-					}
-					else {
-						// no parameters??
-					}
-
-					break;
-				case "au":
-					return ParseAuthCommand(parm);
-				case "da":
-					if (parm.Any()) {
-						string subCode = parm[0];
-						switch (subCode) {
-							case "getmap":
-								SendCommand("da|map|" + FadingWorldsServer.Instance.TheGrid.MakeDump());
-								break;
-							case "maploaded":
-								SendCommand("da|pleaseloadgame");
-								break;
-							case "gameloaded":
-								FadingWorldsServer.Instance.TCPPool.SendMessageToAllButUser(LoggedInUser.Username,
-								                                                            "us|login|" + LoggedInUser.MakeDump());
-
-								SendCommand("da|initplayer|" + LoggedInUser.MakeDump());
-								foreach (Entity entity in FadingWorldsServer.Instance.GameObjects) {
-									SendCommand("da|initentity|" + entity.MakeDump());
-								}
-								SendUserList();
-								FadingWorldsServer.Instance.TheGrid.GetBlockAt(LoggedInUser.Position).Entities.Add(LoggedInUser);
-								break;
-						}
-					}
-
-					break;
-				case "qt": // Pure quit message
-					ConsoleWrite("Got quit command, so returning false on request.");
-					return false;
-				case "sy":
-					if (parm.Any()) {
-						string subCode = parm[0];
-						if (subCode == "po") {
-							ConsoleWrite("Replied to ping");
-						}
-					}
-					break;
-				case "at":
-					if (parm.Length == 3) {
-						string mobId = parm[0];
-						int mobX = int.Parse(parm[1]);
-						int mobY = int.Parse(parm[2]);
-						ConsoleWrite("Player " + LoggedInUser.Id + " doing an attack move on " + mobId);
-						LoggedInUser.TryAttack(mobId);
-						//MoveResult x = LoggedInUser.MoveTo(new Position2D(mobX, mobY));
-
-						//if (subCode == "po")
-						//{
-						//  ConsoleWrite("Replied to ping");
-						//}
-					}
-					break;
-				case "pm":
-					if (parm.Count() == 2) {
-						string target = parm[0];
-						string message = parm[1];
-						SendCommand("ms|system|<<pm to " + LoggedInUser + ":" + message);
-						FadingWorldsServer.Instance.TCPPool.SendMessageToUser(target, "system|>>pm from " + LoggedInUser + ":" + message);
-					}
-					else {
-						SendCommand("ms|system|i'm afraid you need more than that");
-					}
-					break;
-
-				default:
-					ConsoleWrite("ParseGuiCommand():  Sent unknown opCode: " + opCode);
-					SendCommand("ms|system|unknown-cmd");
-					break;
-			}
-			// Default to success
-			return true;
-		}
-
-		//private bool ParseCommand(string input) {
-		//  if (input.StartsWith("sy|po")) {
-		//    // Ping reply
-		//    ConsoleWrite("Replied to ping");
-		//  }
-		//  else if (input.StartsWith("pm")) {
-		//  return true;
-		//}
-
-		private bool ParseAuthCommand(string[] parms) {
-			if (!parms.Any()) {
-				ConsoleWrite("Missing parametres to auth command");
-				return false;
-			}
-			string command = parms[0];
-			switch (command) {
-				case "helo":
-					if (parms.Length == 2) {
-						string version = parms[1];
-						_clientVersion = version;
-
-						//check for outdated version
-                        //if (version == "1.0.0.0")
-                        //{
-                        //    SendCommand("au|oldversion");
-                        //    return false;
-                        //}
-						SendCommand("au|authplease");
-						return true;
-					}
-					else {
-						ConsoleWrite("Missing version to auth helo command");
-						return false;
-					}
-
-				case "login":
-					if (parms.Length == 3) {
-						string username = parms[1];
-						string password = parms[2];
-						//string ip = _client.Client.RemoteEndPoint.ToString().Split(':')[0];
-
-						// Check if user exists
-						var users = FadingWorldsServer.Instance.UserDB.Users.Where(e => e.Username.ToLower().Equals(username.ToLower()));
-						if (!users.Any()) {
-							ConsoleWrite("Unknown user: " + username);
-							SendCommand("au|failed");
-							return false;
-						}
-
-						var login = users.Single();
-
-						// Check if password is correct
-						if (login.Password.Equals(password)) {
-							// Log out if logged in already
-							if (FadingWorldsServer.Instance.TCPPool.IsUserLoggedIn(username)) {
-								FadingWorldsServer.Instance.TCPPool.SendMessageToUser(username, "sy|logged-in-on-another-location");
-								FadingWorldsServer.Instance.TCPPool.DisconnectUser(username);
-							}
-
-							if (login.Health <= 0) {
-								login.Reset();
-							}
-
-							LoggedInUser = login;
-							_state = ConnectionState.LoggedIn;
-							ConsoleWrite("Username: " + LoggedInUser.Username);
-							SendCommand("au|ok|" + ConnectionID);
-							if (LoggedInUser.Position.IsInvalid) {
-								LoggedInUser.Position = FadingWorldsServer.Instance.TheGrid.FindRandomEmptyGrassBlock();
-							}
-
-
-							return true;
-						}
-						else {
-							ConsoleWrite("Invalid password!");
-							SendCommand("au|failed");
-							return false;
-						}
-					}
-					else {
-						ConsoleWrite("wrong number of args");
-						SendCommand("au|failed");
-						return false;
-						// wrong number of args
-					}
-
-
-					//case "version":
-					//  if (parms.Length == 2) {
-					//    string version = parms[1];
-					//    _clientVersion = version;
-					//    ConsoleWrite("	- Version: " + _clientVersion);
-					//    SendCommand("au|ok");
-					//    return true;
-					//    //_parentProcess.PreDB.ResetObject(lgn);
-					//  }
-					//  else {
-					//    ConsoleWrite("wrong number of args");
-					//    SendCommand("au|failed");
-					//    return false;
-					//  }
-
-
-				default:
-					ConsoleWrite("unknown format on auth command ");
-					SendCommand("au|failed");
-					return false;
-			}
-		}
-
-
-		public void SendUserList() {
-			FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ul|" + FadingWorldsServer.Instance.TCPPool.GenerateUserList());
-		}
-
-
-		public void SendCommand(string output) {
-			try {
-				if (!_lineOccupied && !_isClosed && _clientReader.BaseStream.CanWrite && _client.Connected) {
-					while (_lineOccupied) {
-						Thread.Sleep(50);
-					}
-					_lineOccupied = true;
-					_clientWriter.WriteLine(output);
-					_clientWriter.Flush();
-					ConsoleWrite(" -> [" + output + "]");
-					_lineOccupied = false;
-				}
-			}
-			catch (Exception ex) {
-				ConsoleWrite("[-]: sendCommand() exception: " + ex);
-			}
-		}
-
+	    public void SendPayload(NetworkPayload payload)
+	    {
+            try
+            {
+                if (!_lineOccupied && !_isClosed && _client.Connected)
+                {
+                    while (_lineOccupied)
+                    {
+                        Thread.Sleep(50);
+                    }
+                    _lineOccupied = true;
+                    Serializer.SerializeWithLengthPrefix(_client.GetStream(), payload, PrefixStyle.Base128);
+                    _client.GetStream().Flush();
+                    ConsoleWrite(" [out] -> [" + payload + "]");
+                    _lineOccupied = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsoleWrite("[-]: SendPayload() exception: " + ex);
+            }
+	    }
+		
 		//private static string GetTimespan(int secs) {
 		//  if (secs > 0) {
 		//    int[] a1 = {31536000, 604800, 86400, 3600, 60, 1};
@@ -471,32 +609,32 @@ namespace FadingWorldsServer{
 		#region IDisposable Members
 
 		public void Dispose() {
-			try {
-				SendCommand("ms|system|DISPOSING CONNECTION!");
-				if (_clientWriter != null) {
-					_clientWriter.Close();
-					_clientWriter.Dispose();
-				}
-				if (_clientReader != null) {
-					_clientReader.Close();
-					_clientReader.Dispose();
-				}
-				_clientWriter = null;
-				_clientReader = null;
+            //try {
+            //    SendCommand("ms|system|DISPOSING CONNECTION!");
+            //    if (_clientWriter != null) {
+            //        _clientWriter.Close();
+            //        _clientWriter.Dispose();
+            //    }
+            //    if (_clientReader != null) {
+            //        _clientReader.Close();
+            //        _clientReader.Dispose();
+            //    }
+            //    _clientWriter = null;
+            //    _clientReader = null;
 
-				if (_client != null) {
-					if (_client.Client != null) {
-						_client.Client.Close();
-						_client.Client = null;
-					}
-					_client.Close();
-				}
+            //    if (_client != null) {
+            //        if (_client.Client != null) {
+            //            _client.Client.Close();
+            //            _client.Client = null;
+            //        }
+            //        _client.Close();
+            //    }
 
-				_client = null;
-			}
-			catch (Exception ex) {
-				Console.WriteLine(ex.ToString());
-			}
+            //    _client = null;
+            //}
+            //catch (Exception ex) {
+            //    Console.WriteLine(ex.ToString());
+            //}
 		}
 
 		#endregion
