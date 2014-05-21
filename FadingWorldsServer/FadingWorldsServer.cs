@@ -17,16 +17,17 @@ namespace FadingWorldsServer {
 
 		public string Version {
 			get {
-                if (System.Deployment.Application.ApplicationDeployment.IsNetworkDeployed)
-                {
-                    System.Deployment.Application.ApplicationDeployment ad =
-                        System.Deployment.Application.ApplicationDeployment.CurrentDeployment;
-                    return ad.CurrentVersion.ToString();
-                }
-                else
-                {
-                    return Assembly.GetExecutingAssembly().GetName(false).Version.ToString();
-                }
+                //if (System.Deployment.Application.ApplicationDeployment.IsNetworkDeployed)
+                //{
+                //    System.Deployment.Application.ApplicationDeployment ad =
+                //        System.Deployment.Application.ApplicationDeployment.CurrentDeployment;
+                //    return ad.CurrentVersion.ToString();
+                //}
+                //else
+                //{
+                //    return Assembly.GetExecutingAssembly().GetName(false).Version.ToString();
+                //}
+			    return "1.0.0.0";
 			}
 		}
 
