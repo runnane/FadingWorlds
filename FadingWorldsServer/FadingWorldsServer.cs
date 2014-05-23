@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -12,24 +13,11 @@ using fwlib;
 namespace FadingWorldsServer {
 	public class FadingWorldsServer {
 		private const int TCPLocalPort = 4100;
+	    private const int InitialCountOfMobs = 10;
 
 		public static FadingWorldsServer Instance { get; set; }
 
-		public string Version {
-			get {
-                //if (System.Deployment.Application.ApplicationDeployment.IsNetworkDeployed)
-                //{
-                //    System.Deployment.Application.ApplicationDeployment ad =
-                //        System.Deployment.Application.ApplicationDeployment.CurrentDeployment;
-                //    return ad.CurrentVersion.ToString();
-                //}
-                //else
-                //{
-                //    return Assembly.GetExecutingAssembly().GetName(false).Version.ToString();
-                //}
-			    return "1.0.0.0";
-			}
-		}
+		public string Version { get; set; }
 
 		public TcpConnectionPool TCPPool;
 		private readonly Thread _tcpThread;
@@ -42,9 +30,19 @@ namespace FadingWorldsServer {
 
 		private static void Main() {
 			new FadingWorldsServer();
+
 		}
 
 		public FadingWorldsServer() {
+            using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("NettVarsel." + "version.txt"))
+            {
+                if (stream != null)
+                    using (var reader = new StreamReader(stream))
+                    {
+                        Version = reader.ReadToEnd();
+                    }
+            }
+
 			Console.WriteLine("Fading Worlds - server v" + Version + " initializing");
             //try {
 				Instance = this;
@@ -60,11 +58,10 @@ namespace FadingWorldsServer {
 
 
 				// Add som random startmobs
-				int initialCountOfMobs = 10;
 				GameObjects = new EntityCollection();
-				for (int i = 0; i < initialCountOfMobs; i++) {
+				for (var i = 0; i < InitialCountOfMobs; i++) {
 					var monster1 = new Skeleton();
-					Position2D randPos = TheGrid.FindRandomEmptyGrassBlock();
+					var randPos = TheGrid.FindRandomEmptyGrassBlock();
 					monster1.Position = randPos;
 					TheGrid.GetBlockAt(randPos).Entities.Add(monster1);
 					lock (GameObjects) {
@@ -78,7 +75,7 @@ namespace FadingWorldsServer {
 				TCPPool = new TcpConnectionPool();
 
 				// Ping check timer
-				System.Timers.Timer myTimer = new System.Timers.Timer();
+				var myTimer = new System.Timers.Timer();
 				myTimer.Elapsed += TCPPool.CheckPool;
 				myTimer.Interval = 10000;
 				myTimer.Start();
@@ -104,6 +101,7 @@ namespace FadingWorldsServer {
             //    Console.WriteLine(ex.ToString());
             //    Console.ReadLine();
             //}
+
 		}
 
 		private void Update() {
@@ -129,7 +127,7 @@ namespace FadingWorldsServer {
 
 		public void TCPConnectionHandler(Object connection) {
 			try {
-				ConnectionThread ct = new ConnectionThread((TcpClient) connection);
+				var ct = new ConnectionThread((TcpClient) connection);
 				TCPPool.Add(ref ct);
 				ct.StartListen();
 			}
@@ -150,8 +148,8 @@ namespace FadingWorldsServer {
 				Console.WriteLine("Client system on tcp://0.0.0.0:" + TCPLocalPort + " started OK (ThreadID=" +
 				                  _tcpThread.ManagedThreadId + ")");
 				while (true) {
-					TcpClient connection = serverListenerTCP.AcceptTcpClient();
-					Thread t = new Thread(TCPConnectionHandler);
+					var connection = serverListenerTCP.AcceptTcpClient();
+					var t = new Thread(TCPConnectionHandler);
 					t.Name = "Client ConnectionThread [" + connection.Client.RemoteEndPoint + "]";
 					t.Start(connection);
 				}
@@ -184,7 +182,7 @@ namespace FadingWorldsServer {
 			{
 				monster1 = new Skeleton();
 			}
-			Position2D randPos = TheGrid.FindRandomEmptyGrassBlock();
+			var randPos = TheGrid.FindRandomEmptyGrassBlock();
 			monster1.Position = randPos;
 			TCPPool.SendMessageToAll("da|initentity|" + monster1.MakeDump());
 			TheGrid.GetBlockAt(randPos).Entities.Add(monster1);

@@ -58,7 +58,6 @@ namespace FadingWorldsClient
             this.txtUsername.Name = "txtUsername";
             this.txtUsername.Size = new System.Drawing.Size(181, 20);
             this.txtUsername.TabIndex = 1;
-            this.txtUsername.Text = "psax";
             // 
             // txtPassword
             // 
@@ -83,7 +82,7 @@ namespace FadingWorldsClient
             this.txtHost.Name = "txtHost";
             this.txtHost.Size = new System.Drawing.Size(181, 20);
             this.txtHost.TabIndex = 4;
-            this.txtHost.Text = "localhost";
+            this.txtHost.Text = "mildred.runnane.no";
             // 
             // label1
             // 
