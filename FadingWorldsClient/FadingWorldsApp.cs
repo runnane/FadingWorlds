@@ -308,11 +308,11 @@ namespace FadingWorldsClient
 		}
 
 
-		protected override void OnExiting(object sender, EventArgs args) {
-			TheLoader.SetVisible(true);
-			TheLoader.Exit();
-			base.OnExiting(sender, args);
-		}
+        //protected override void OnExiting(object sender, EventArgs args) {
+        //    //TheLoader.SetVisible(true);
+        //    //TheLoader.Exit();
+        //    //base.OnExiting(sender, args);
+        //}
 
 		public void WaitForMap() {
 			while (true) {

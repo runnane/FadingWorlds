@@ -180,7 +180,7 @@ namespace FadingWorldsClient
 
 									TheLoader.SetLoggedIn(true);
 									TheLoader.SpawnGame(0, 0, "");
-									TheLoader.SetVisible(false);
+									//TheLoader.SetVisible(false);
 
 									while (TheLoader.TheGame == null || !TheLoader.TheGame.IsLoaded) {
 										Thread.Sleep(100);
@@ -189,13 +189,11 @@ namespace FadingWorldsClient
 
 									return true;
 								}
-								else {
-									Console.WriteLine("OOOPS - server did not send connectionid");
-									return false;
-								}
+						        Console.WriteLine("OOOPS - server did not send connectionid");
+						        return false;
 
 
-							default:
+						    default:
 								throw new Exception("Unknown auth (subCode): '" + subCode + "'");
 						}
 					}

@@ -102,20 +102,20 @@ namespace FadingWorldsClient
 
 
 			// Starting tcp con
-			Console.WriteLine("Creating new thread");
-			socketThread = new Thread(new ThreadStart(InitiateConnectionThread));
-			socketThread.Name = "ConnectionThread";
-			socketThread.Start();
+            Message("StartConnect() Creating new thread");
+			socketThread = new Thread(InitiateConnectionThread) {Name = "ConnectionThread"};
+		    socketThread.Start();
 
 		}
 
 		public void InitiateConnectionThread() {
 			try {
-				Console.WriteLine("Thread started, connecting.");
+                Message("InitiateConnectionThread() Thread started, connecting.");
 				connectionLoop = new ConnectionLoop(this);
 				connectionLoop.StartConnect(hostname, 4100, username, password);
 				connectionLoop.Disconnect();
 				connectionLoop = null;
+
 			}
 			catch (ThreadAbortException ex) {
 				throw ex;
@@ -128,19 +128,19 @@ namespace FadingWorldsClient
 				}
 				// TODO: FixMe
 			}
+            Message("InitiateConnectionThread() at end");
 		}
 
 
 		internal void SpawnGame(int blockWidth, int blockHeight, string mapData) {
-			String[] s = new string[3];
+			var s = new string[3];
 			s[0] = blockWidth.ToString();
 			s[1] = blockHeight.ToString();
 			s[2] = mapData;
 
-			Console.WriteLine("Creating new thread");
-			gameThread = new Thread(new ParameterizedThreadStart(InitiateGameThread));
-			gameThread.Name = "GameThread";
-			gameThread.Start(s);
+            Message("SpawnGame() Creating new thread");
+			gameThread = new Thread(InitiateGameThread) {Name = "GameThread"};
+		    gameThread.Start(s);
 			State = GameState.Starting;
 		}
 											
@@ -174,11 +174,13 @@ namespace FadingWorldsClient
 			}
 			if (gameThread != null)
 			{
-				gameThread.Join();
+                gameThread.Abort();
+				//gameThread.Join();
 			}
 			if (socketThread != null)
 			{
-				socketThread.Join();
+                socketThread.Abort();
+				//socketThread.Join();
 			}
 			//	Close();
 		}
