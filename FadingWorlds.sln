@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FadingWorldsServer", "Fadin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FadingWorldsContent", "FadingWorldsContent\FadingWorldsContent\FadingWorldsContent.csproj", "{55E0B9C1-DA8A-4FD9-BBF0-E5233250F335}"
 EndProject
-Project("{96E2B04D-8817-42C6-938A-82C39BA4D311}") = "FadingWorldsContentContent", "FadingWorldsContent\FadingWorldsContentContent\FadingWorldsContentContent.contentproj", "{B2E03E54-BBFD-4C2D-993F-606084DA264E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FadingWorldsContentContent", "FadingWorldsContent\FadingWorldsContentContent\FadingWorldsContentContent.contentproj", "{B2E03E54-BBFD-4C2D-993F-606084DA264E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
