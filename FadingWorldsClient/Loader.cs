@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -29,22 +30,7 @@ namespace FadingWorldsClient
 		public GameState State { get; set; }
 
 
-		public string Version
-		{
-			get
-			{
-				if (System.Deployment.Application.ApplicationDeployment.IsNetworkDeployed)
-				{
-					System.Deployment.Application.ApplicationDeployment ad =
-						System.Deployment.Application.ApplicationDeployment.CurrentDeployment;
-					return ad.CurrentVersion.ToString();
-				}
-				else
-				{
-					return Assembly.GetExecutingAssembly().GetName(false).Version.ToString();
-				}
-			}
-		}
+        public string Version { get; set; }
 
 		private string username;
 		private string password;
@@ -52,22 +38,35 @@ namespace FadingWorldsClient
 
 
 		public Loader() {
+            using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("FadingWorldsClient." + "version.txt"))
+            {
+                if (stream != null)
+                    using (var reader = new StreamReader(stream))
+                    {
+                        Version = reader.ReadToEnd();
+                    }
+            }
+
 			InitializeComponent();
 			State = GameState.InLoader;
+		    
 		}
 
 		internal delegate void SetVisibleDelegate(bool p);
 
 		internal void SetVisible(bool p) {
-			if (this.InvokeRequired) {
-				this.BeginInvoke(new SetVisibleDelegate(SetVisible), p);
+			if (InvokeRequired) {
+				BeginInvoke(new SetVisibleDelegate(SetVisible), p);
 			}else {
-				this.Visible = p;
+				Visible = p;
 			}
 		}
 
 
-		private void Loader_Load(object sender, EventArgs e) {}
+	    private void Loader_Load(object sender, EventArgs e)
+	    {
+	        Text = "Fading Worlds Loader [" + Version + "]";
+	    }
 
 		private void btnLogin_Click(object sender, EventArgs e) {
 			StartConnect();

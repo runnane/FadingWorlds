@@ -34,7 +34,7 @@ namespace FadingWorldsServer {
 		}
 
 		public FadingWorldsServer() {
-            using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("NettVarsel." + "version.txt"))
+            using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("FadingWorldsServer." + "version.txt"))
             {
                 if (stream != null)
                     using (var reader = new StreamReader(stream))
