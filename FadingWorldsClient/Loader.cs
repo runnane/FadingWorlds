@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using fwlib;
 
 namespace FadingWorldsClient
 {
@@ -104,7 +105,7 @@ namespace FadingWorldsClient
 			// Starting tcp con
             Message("StartConnect() Creating new thread");
 			socketThread = new Thread(InitiateConnectionThread) {Name = "ConnectionThread"};
-		    socketThread.Start();
+			socketThread.Start();
 
 		}
 
@@ -140,23 +141,27 @@ namespace FadingWorldsClient
 
             Message("SpawnGame() Creating new thread");
 			gameThread = new Thread(InitiateGameThread) {Name = "GameThread"};
-		    gameThread.Start(s);
+			gameThread.Start(s);
 			State = GameState.Starting;
 		}
 											
 
 		public void InitiateGameThread(object o) {
-            //try {
+            try
+            {
             TheGame = new FadingWorldsApp(this, (string[])o);
             TheGame.Run();
-            //}
-            //catch (ThreadAbortException ex) {
-            //    throw ex;
-            //}
-            //catch (Exception ex) {
-            //    Console.WriteLine(ex.ToString());
+            }
+            catch (ThreadAbortException ex)
+            {
+                throw ex;
+            }
+            //catch (Exception ex)
+            //{
+            //    Message(ex.ToString());
             //    // TODO: FixMe
             //}
+            Message("Completed");
 		}
 
 		private void Loader_FormClosed(object sender, FormClosedEventArgs e) {
@@ -189,12 +194,13 @@ namespace FadingWorldsClient
 
 		internal void Exit()
 		{
-			if (this.InvokeRequired)
+			if (InvokeRequired)
 			{
-				this.BeginInvoke(new ExitDelegate(Exit));
+				BeginInvoke(new ExitDelegate(Exit));
 			}else {
 				if(connectionLoop != null && connectionLoop.IsConnected) {
-					connectionLoop.SendCommand("qt");
+                    //connectionLoop.SendCommand("qt");
+                    connectionLoop.SendPayload(new NetworkPayload { Type = PayloadType.Quit});
 				}
 				Close();
 			}
@@ -204,14 +210,17 @@ namespace FadingWorldsClient
 
 		internal void Message(string text)
 		{
-			if (this.InvokeRequired)
+			if (InvokeRequired)
 			{
-				this.BeginInvoke(new MessageDelegate(Message),text);
+				BeginInvoke(new MessageDelegate(Message),text);
 			}
 			else
 			{
-				MessageBox.Show(text);
-				txtOutput.Text = text + "\n" + txtOutput.Text;
+				//MessageBox.Show(text);
+			    txtOutput.Text += "\r\n" + text;
+                txtOutput.SelectionStart = txtOutput.Text.Length;
+                txtOutput.ScrollToCaret();
+                txtOutput.Refresh();
 			}
 		}
 
@@ -223,5 +232,13 @@ namespace FadingWorldsClient
 		public void SetMap(int blockWidth, int blockHeight, string mapData) {
 			TheGame.MakeGrid(blockWidth, blockHeight, mapData);
 		}
+
+
+	    public void Disconnect()
+	    {
+	        connectionLoop.Disconnect();
+            socketThread.Abort();
+            gameThread.Abort();
+	    }
 	}
 }

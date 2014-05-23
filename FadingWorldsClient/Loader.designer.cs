@@ -73,8 +73,10 @@ namespace FadingWorldsClient
             this.txtOutput.Location = new System.Drawing.Point(12, 118);
             this.txtOutput.Multiline = true;
             this.txtOutput.Name = "txtOutput";
-            this.txtOutput.Size = new System.Drawing.Size(383, 274);
+            this.txtOutput.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this.txtOutput.Size = new System.Drawing.Size(699, 382);
             this.txtOutput.TabIndex = 3;
+            this.txtOutput.Text = "Fading Worlds Loader Init";
             // 
             // txtHost
             // 
@@ -116,7 +118,7 @@ namespace FadingWorldsClient
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(407, 404);
+            this.ClientSize = new System.Drawing.Size(723, 512);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
@@ -126,7 +128,7 @@ namespace FadingWorldsClient
             this.Controls.Add(this.txtUsername);
             this.Controls.Add(this.btnLogin);
             this.Name = "Loader";
-            this.Text = "Fading World Online Loader";
+            this.Text = "Fading Worlds Online Loader";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Loader_FormClosing);
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Loader_FormClosed);
             this.Load += new System.EventHandler(this.Loader_Load);

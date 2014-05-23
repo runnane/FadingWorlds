@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using FadingWorldsClient.GameObjects.Living;
 using fwlib;
 using Microsoft.Xna.Framework;
@@ -103,7 +104,13 @@ namespace FadingWorldsClient.GameObjects
 			var result = CanMove(newpos);
 			if (result == MoveResult.Moved) {
 				if ((this is Player)) {
-					FadingWorldsApp.Instance.TheLoader.connectionLoop.SendCommand("mv|self|" + newpos.X + "|" + newpos.Y);
+                    //FadingWorldsApp.Instance.TheLoader.connectionLoop.SendCommand("mv|self|" + newpos.X + "|" + newpos.Y);
+                    FadingWorldsApp.Instance.TheLoader.connectionLoop.SendPayload(new NetworkPayload
+                    {
+                        Type = PayloadType.Move,
+                        Params = new List<string>{ "self", "" + newpos.X, "" + newpos.Y }
+
+                    });
 				}
 				FadingWorldsApp.Instance.TheGrid.GetBlockAt(Position).MoveEntity(this,
 				                                                                 FadingWorldsApp.Instance.TheGrid.GetBlockAt(newpos));

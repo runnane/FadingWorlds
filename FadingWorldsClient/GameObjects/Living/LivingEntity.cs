@@ -69,11 +69,16 @@ namespace FadingWorldsClient.GameObjects.Living
 		internal override void PostMove(MoveResult mv, Position2D pos) {
 			base.PostMove(mv, pos);
 			if (mv == MoveResult.CannotMoveLivingEntityInTheWay) {
-				LivingEntity targetEntity = FadingWorldsApp.Instance.TheGrid.GetBlockAt(pos).Entities.LivingEntity as LivingEntity;
+				var targetEntity = FadingWorldsApp.Instance.TheGrid.GetBlockAt(pos).Entities.LivingEntity as LivingEntity;
 				if (targetEntity != null && (this is Player)) {
-					FadingWorldsApp.Instance.TheLoader.connectionLoop.SendCommand("at|" + targetEntity.Id + "|" +
-					                                                              targetEntity.Position.X + "|" +
-					                                                              targetEntity.Position.Y);
+                    //FadingWorldsApp.Instance.TheLoader.connectionLoop.SendCommand("at|" + targetEntity.Id + "|" +
+                    //                                                              targetEntity.Position.X + "|" +
+                    //                                                              targetEntity.Position.Y);
+                    FadingWorldsApp.Instance.TheLoader.connectionLoop.SendPayload(new NetworkPayload
+                    {
+                        Type = PayloadType.Attack,
+                        Params = { targetEntity.Id, ""+targetEntity.Position.X, ""+targetEntity.Position.Y }
+                    });
 				}
 			}
 		}

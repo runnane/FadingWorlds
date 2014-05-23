@@ -1,6 +1,4 @@
-﻿using FadingWorldsServer.ServerObjects;
-using fwlib;
-using Microsoft.Xna.Framework;
+﻿using fwlib;
 
 namespace FadingWorldsServer.GameObjects.Living
 {
@@ -53,12 +51,14 @@ namespace FadingWorldsServer.GameObjects.Living
 				int healthIncrease = Helper.Random(1, 5);
 				Health += healthIncrease;
 				MaxHealth += healthIncrease;
-				FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/ac/" + 1 + "/" + ArmorClass);
-				FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/ap/" + 1 + "/" + AttackPower);
-				FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/level/" + 1 + "/" + Level);
-				FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/nextlevel/" + diff + "/" + NextLevelAt);
-				FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/hp/" + healthIncrease + "/" + Health);
-				FadingWorldsServer.Instance.TCPPool.SendMessageToAll("ec|" + Id + "/maxhp/" + healthIncrease + "/" + MaxHealth);
+
+                FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload { Type = PayloadType.EntityChange, Params = { Id, "ac", "" + 1, "" + ArmorClass } });
+                FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload { Type = PayloadType.EntityChange, Params = { Id, "ap", "" + 1, "" + AttackPower } });
+                FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload { Type = PayloadType.EntityChange, Params = { Id, "level", "" + 1, "" + Level } });
+                FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload { Type = PayloadType.EntityChange, Params = { Id, "nextlevel", "" + diff, "" + NextLevelAt } });
+                FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload { Type = PayloadType.EntityChange, Params = { Id, "hp", "" + healthIncrease, "" + Health } });
+                FadingWorldsServer.Instance.TCPPool.SendPayloadToAll(new NetworkPayload { Type = PayloadType.EntityChange, Params = { Id, "maxhp", "" + healthIncrease, "" + MaxHealth } });
+
 			}
 
 			base.Tick();

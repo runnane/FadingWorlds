@@ -10,15 +10,12 @@ using FadingWorldsClient.GameObjects;
 using FadingWorldsClient.GameObjects.Blocks;
 using FadingWorldsClient.GameObjects.Living;
 using fwlib;
+using ProtoBuf;
 
 namespace FadingWorldsClient
 {
 	public class ConnectionLoop : IDisposable {
 		private TcpClient _client;
-		private StreamReader _clientReader;
-		private StreamWriter _clientWriter;
-		private SslStream _sslSecureStream;
-
 		private string _loggedInUser;
 
 		public Loader TheLoader;
@@ -30,7 +27,6 @@ namespace FadingWorldsClient
 
 		private string _username;
 		private string _password;
-		private readonly char[] _delimPipe = {'|'};
 
 		public ConnectionLoop(Loader loader) {
 			TheLoader = loader;
@@ -54,10 +50,14 @@ namespace FadingWorldsClient
 				throw;
 			}
 			catch (Exception) {
-				//Console.WriteLine(ex.ToString());
+				//Log(ex.ToString());
 			}
 		}
 
+	    public void Log(string s)
+	    {
+	        TheLoader.Message(s);
+	    }
 		/// <summary>
 		/// 
 		/// </summary>
@@ -70,51 +70,66 @@ namespace FadingWorldsClient
 				_username = username;
 				_password = password;
 
-				Console.WriteLine(DateTime.Now.ToLongTimeString() + ": Trying to connect");
+				Log(DateTime.Now.ToLongTimeString() + ": Trying to connect");
 				try {
 					_client = new TcpClient(szRemoteHostName, iRemotePort);
 				}
 				catch (Exception ex) {
-					Console.WriteLine(DateTime.Now.ToLongTimeString() + ": Connection failed, server not responding (" + ex.Message +
+					Log(DateTime.Now.ToLongTimeString() + ": Connection failed, server not responding (" + ex.Message +
 					                  ")");
 					return;
 				}
 				TheLoader.StopReconnectSequence();
-				_clientReader = new StreamReader(_client.GetStream(), Encoding.GetEncoding(28591));
-				_clientWriter = new StreamWriter(_client.GetStream(), Encoding.GetEncoding(28591));
-				SendCommand("au|helo|" + TheLoader.Version);
+			    SendPayload(new NetworkPayload
+			    {
+			        Type = PayloadType.Auth,
+			        Command = PayloadCommand.Helo,
+			        Params = {TheLoader.Version}
+			    });
+               
 				IsSecure = false;
 
-				Console.WriteLine(DateTime.Now.ToLongTimeString() + ": Connected!");
-				string input;
+				Log(DateTime.Now.ToLongTimeString() + ": Connected!");
+				//string input;
 
-				Console.WriteLine("Connected to Fading Worlds Server");
+				Log("Connected to Fading Worlds Server");
 				IsConnected = true;
-
-				while (!IsShuttingDown && !IsDisconnecting && _client.Connected && _clientReader.BaseStream.CanRead) {
+			    while (!IsShuttingDown && !IsDisconnecting && _client.Connected)
+			    {
 					// Wait for command
-					try {
-						input = _clientReader.ReadLine();
-						Console.WriteLine("input< " + input);
+			        NetworkPayload payload;
+			        try
+			        {
+			            //input = _clientReader.ReadLine();
+			            payload = Serializer.DeserializeWithLengthPrefix<NetworkPayload>(_client.GetStream(),
+			                PrefixStyle.Base128);
+                        //payload.Complete = true;
+                        Log("input< " + payload);
+			            //Log(payload.ToString());
 					}
-					catch (IOException) {
+			        catch (IOException)
+			        {
 						if (!IsShuttingDown)
-							Console.WriteLine(DateTime.Now.ToLongTimeString() + ": Connection violently closed at remote end");
+			                Log(DateTime.Now.ToLongTimeString() + ": Connection violently closed at remote end");
 						break;
 					}
-					if (input == null) {
-						if (!IsShuttingDown)
-							Console.WriteLine(DateTime.Now.ToLongTimeString() + ": Remote end closed connection");
+                    //if (payload == null)
+                    //{
+                    //    if (!IsShuttingDown)
+                    //        Log(DateTime.Now.ToLongTimeString() + ": Remote end closed connection");
+                    //    break;
+                    //}
+                    if (payload.Type != PayloadType.Unset)
+                    {
+                        if (!HandlePayload(payload))
+                        {
 						break;
 					}
-					if (input.Length > 0)
-						if (!ParseInput(input)) {
-							break;
 						}
 				}
 				if (!IsShuttingDown) {
-					Console.WriteLine(DateTime.Now.ToLongTimeString() + ": Disconnected");
-					Console.WriteLine("-- Disconnected --");
+					Log(DateTime.Now.ToLongTimeString() + ": Disconnected");
+					Log("-- Disconnected --");
 					TheLoader.SetLoggedIn(false);
 					TheLoader.TheGame.Exit();
 				}
@@ -123,93 +138,97 @@ namespace FadingWorldsClient
 				throw;
 			}
 			catch (Exception ex) {
-				Console.WriteLine(ex.ToString());
+				Log(ex.ToString());
 			}
 		}
 
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="text"></param>
-		public void SendCommand(string text) {
-			if (text.StartsWith("ms|/")) {
-				text = "." + text.Substring(6);
+	    
+		
+		public void SendPayload(NetworkPayload msg)
+		{
+		    Serializer.SerializeWithLengthPrefix(_client.GetStream(), msg, PrefixStyle.Base128);
+            _client.GetStream().Flush();
+            Log("Sending: " + msg);
 			}
-			if (text.Length > 0) {
-				Console.WriteLine("output> " + text);
-				_clientWriter.WriteLine(text);
-				_clientWriter.Flush();
-			}
-		}
 
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="opCode"></param>
-		/// <param name="parm"></param>
-		/// <returns></returns>
-		private bool HandleCode(string opCode, string[] parm) {
-			switch (opCode) {
-				case "au":
-					if (parm.Any()) {
-						string subCode = parm[0];
-						switch (subCode) {
-							case "authplease":
+        //public void SendPayload(PayloadType pt, PayloadCommand pc, List<string> parms)
+        //{
+        //    Serializer.SerializeWithLengthPrefix(_client.GetStream(), new NetworkPayload {Type = pt, Command = pc, Params = parms}, PrefixStyle.Base128);
+        //}
+
+		
+		private bool HandlePayload(NetworkPayload payload) {
+            switch (payload.Type)
+            {
+				case PayloadType.Auth:
+						switch (payload.Command) {
+							case PayloadCommand.AuthPlease:
 								if (_loggedInUser == null) {
-									SendCommand("au|login|" + _username + "|" + _password);
+                                    SendPayload(new NetworkPayload
+                                    {
+                                        Type = PayloadType.Auth,
+                                        Command = PayloadCommand.Login,
+                                        Params = { _username, _password }
+                                    });
+									//SendCommand("au|login|" + _username + "|" + _password);
 								}
 								else {
-									Console.WriteLine("OOOPS - server wants us to authenticate, but we already are??? :(");
+									Log("OOOPS - server wants us to authenticate, but we already are??? :(");
 								}
 								break;
-							case "oldversion":
-								Console.WriteLine("OOOPS - server says we are outdated");
+							case PayloadCommand.OldVersion:
+								Log("OOOPS - server says we are outdated");
 								return false;
 
-							case "failed":
+                            case PayloadCommand.Fail:
 								TheLoader.Message("Login failed!");
 								return false;
 
-							case "ok":
-								if (parm.Length == 2) {
-									string connectionId = parm[1];
-									Console.WriteLine("Our connectionid is " + connectionId);
-									_loggedInUser = _username;
+							case PayloadCommand.Success:
+						        if (payload.Params.Count == 1)
+						        {
+						            string connectionId = payload.Params[0];
+						            Log("Our connectionid is " + connectionId);
+						            _loggedInUser = _username;
 
-									TheLoader.State = GameState.WaitingForMap;
+						            TheLoader.State = GameState.WaitingForMap;
 
-									TheLoader.SetLoggedIn(true);
-									TheLoader.SpawnGame(0, 0, "");
-									//TheLoader.SetVisible(false);
+						            TheLoader.SetLoggedIn(true);
+						            TheLoader.SpawnGame(0, 0, "");
+						            //TheLoader.SetVisible(false);
 
-									while (TheLoader.TheGame == null || !TheLoader.TheGame.IsLoaded) {
-										Thread.Sleep(100);
-									}
-									SendCommand("da|getmap");
+						            while (TheLoader.TheGame == null || !TheLoader.TheGame.IsLoaded)
+						            {
+						                Thread.Sleep(100);
+						            }
+						            SendPayload(new NetworkPayload
+						            {
+						                Type = PayloadType.Data,
+						                Command = PayloadCommand.GetMap
+						            });
+						            //SendCommand("da|getmap");
 
-									return true;
-								}
-						        Console.WriteLine("OOOPS - server did not send connectionid");
-						        return false;
-
+						            return true;
+						        }
+						        else
+						        {
+						            Log("OOOPS - server did not send connectionid");
+						            return false;
+						        }
 
 						    default:
-								throw new Exception("Unknown auth (subCode): '" + subCode + "'");
+								throw new Exception("Unknown auth (subCode): '" + payload.Command + "'");
 						}
-					}
-					else {
-						throw new Exception("Missing auth subcode");
-					}
+					
+					
 					break;
-				case "da":
-					if (parm.Any()) {
-						string subCode2 = parm[0];
-						switch (subCode2) {
-							case "map":
+				case PayloadType.Data:
+                   switch (payload.Command) {
+							case PayloadCommand.Map:
 
-								int blockWidth = int.Parse(parm[1]);
-								int blockHeight = int.Parse(parm[2]);
-								string mapData = parm[3];
+								int blockWidth = int.Parse(payload.Params[0]);
+                                int blockHeight = int.Parse(payload.Params[1]);
+                                string mapData = payload.Params[2];
 								//TheLoader.SetLoggedIn(true);
 								//TheLoader.SetVisible(false);
 
@@ -219,20 +238,31 @@ namespace FadingWorldsClient
 								//}
 								TheLoader.SetMap(blockWidth, blockHeight, mapData);
 
-								SendCommand("da|maploaded");
+                                SendPayload(new NetworkPayload
+                                {
+                                    Type = PayloadType.Data,
+                                    Command = PayloadCommand.MapLoaded
+                                });
+
+								//SendCommand("da|maploaded");
 
 								return true;
 
 
-							case "pleaseloadgame":
+							case PayloadCommand.PleaseLoadGame:
 								while (TheLoader.TheGame == null || !TheLoader.TheGame.IsLoaded) {
 									Thread.Sleep(100);
 								}
-								SendCommand("da|gameloaded");
+                                SendPayload(new NetworkPayload
+                                {
+                                    Type = PayloadType.Data,
+                                    Command = PayloadCommand.GameLoaded
+                                });
+								//SendCommand("da|gameloaded");
 
 								return true;
-							case "initplayer":
-								Dictionary<string, string> confSet = Helper.ConvertDataStringToDictionary(parm[1]);
+							case PayloadCommand.InitPlayer:
+                                Dictionary<string, string> confSet = Helper.ConvertDataStringToDictionary(payload.Params[0]);
 								foreach (KeyValuePair<string, string> keyValuePair in confSet) {
 									string attr = keyValuePair.Key;
 									string val = keyValuePair.Value;
@@ -276,12 +306,12 @@ namespace FadingWorldsClient
 											break;
 
 										default:
-											Console.WriteLine("Unknown attr for player: " + attr + " -> " + val + "");
+											Log("Unknown attr for player: " + attr + " -> " + val + "");
 											break;
 									}
 								}
 								if (confSet["x"] != null) {
-									Position2D pos = new Position2D(int.Parse(confSet["x"]), int.Parse(confSet["y"]));
+									var pos = new Position2D(int.Parse(confSet["x"]), int.Parse(confSet["y"]));
 									TheLoader.TheGame.ThePlayer.Position = pos;
 									TheLoader.TheGame.TheGrid.GetBlockAt(pos).Entities.Add(TheLoader.TheGame.ThePlayer);
 									lock(TheLoader.TheGame.GameObjects) {
@@ -290,11 +320,11 @@ namespace FadingWorldsClient
 								
 								}
 								else {
-									Console.WriteLine("Did not get user coords for player!!");
+									Log("Did not get user coords for player!!");
 								}
 								return true;
-							case "initentity":
-								Dictionary<string, string> confSet2 = Helper.ConvertDataStringToDictionary(parm[1]);
+							case PayloadCommand.InitEntity:
+                                Dictionary<string, string> confSet2 = Helper.ConvertDataStringToDictionary(payload.Params[0]);
 								LivingEntity mob2;
 								if (confSet2["type"].Contains("Skeleton"))
 								{
@@ -317,20 +347,21 @@ namespace FadingWorldsClient
 
 
 							default:
-								throw new Exception("Unknown auth (subCode): '" + subCode2 + "'");
+								throw new Exception("Unknown auth (subCode): '" + payload.Command + "'");
 						}
-					}
+                    //}
 					break;
-				case "ms":
-					if (parm.Length > 1) {
-						string from = parm[0];
-						string message = parm[1];
+				case PayloadType.Message:
+                    if (payload.Params.Count > 1)
+                    {
+                        string from = payload.Params[0];
+                        string message = payload.Params[1];
 						if (from.ToUpper().Equals("SYSTEM"))
-							Console.WriteLine("" + from + " " + message + "");
+							Log("" + from + " " + message + "");
 						if (from.Equals(_loggedInUser))
-							Console.WriteLine("" + from + " " + message + "");
+							Log("" + from + " " + message + "");
 						else
-							Console.WriteLine("" + from + " " + message + "");
+							Log("" + from + " " + message + "");
 					}
 					else {
 						// error from server, to few command
@@ -338,20 +369,21 @@ namespace FadingWorldsClient
 					}
 					break;
 
-				case "us":
-					if (parm.Length > 1) {
-						string subCode = parm[0];
-						switch (subCode) {
-							case "login":
-								Dictionary<string, string> confSet = Helper.ConvertDataStringToDictionary(parm[1]);
+				case PayloadType.User:
+                    //if (parm.Length > 1) {
+                    //    string subCode = parm[0];
+                        switch (payload.Command)
+                        {
+							case PayloadCommand.Login:
+                                var confSet = Helper.ConvertDataStringToDictionary(payload.Params[0]);
 
 								if (confSet["id"] == _username) {
 									return true;
 								}
-								OtherPlayer op = TheLoader.TheGame.GameObjects.GetById(confSet["id"]) as OtherPlayer;
+								var op = TheLoader.TheGame.GameObjects.GetById(confSet["id"]) as OtherPlayer;
 								if (op == null) {
-									OtherPlayer otherplayer = new OtherPlayer(Textures.Hero, confSet["id"]);
-									Position2D playerPos = new Position2D(int.Parse(confSet["x"]), int.Parse(confSet["y"]));
+									var otherplayer = new OtherPlayer(Textures.Hero, confSet["id"]);
+									var playerPos = new Position2D(int.Parse(confSet["x"]), int.Parse(confSet["y"]));
 									otherplayer.Desc = confSet["id"];
 									otherplayer.Position = playerPos;
 									//	otherplayer.Disconnected = true;
@@ -368,9 +400,9 @@ namespace FadingWorldsClient
 									}
 								}
 								break;
-							case "logout":
-								string username = parm[1];
-								OtherPlayer otherplayer2 = TheLoader.TheGame.GameObjects.GetById(username) as OtherPlayer;
+							case PayloadCommand.Logout:
+                                string username = payload.Params[0];
+								var otherplayer2 = TheLoader.TheGame.GameObjects.GetById(username) as OtherPlayer;
 								if (otherplayer2 != null) {
 									otherplayer2.OnDeath();
 									TheLoader.TheGame.TheGrid.GetBlockAt(otherplayer2.Position).Entities.Remove(otherplayer2);
@@ -380,21 +412,22 @@ namespace FadingWorldsClient
 								}
 								break;
 							default:
-								throw new Exception("unknown us subCode " + subCode);
+								throw new Exception("unknown us subCode " + payload.Command);
 						}
-					}
-					else {
-						// error from server, to few command
-						throw new Exception("unknown us syntax ");
-					}
+					//}
+                    //else {
+                    //    // error from server, to few command
+                    //    throw new Exception("unknown us syntax ");
+                    //}
 					break;
 
-				case "ul":
+                case PayloadType.UserList:
 					while (TheLoader.TheGame == null || TheLoader.TheGame.GameObjects == null) {
 						Thread.Sleep(100);
 					}
 
-					foreach (string t in parm) {
+                    foreach (string t in payload.Params)
+                    {
 						string[] configBlocks = t.Split('#');
 						foreach (string configBlock in configBlocks) {
 							if (configBlock.Trim().Length > 0) {
@@ -403,11 +436,11 @@ namespace FadingWorldsClient
 									continue;
 								}
 
-								OtherPlayer op = TheLoader.TheGame.GameObjects.GetById(confSet["id"]) as OtherPlayer;
+								var op = TheLoader.TheGame.GameObjects.GetById(confSet["id"]) as OtherPlayer;
 								if (op == null) {
 									op = new OtherPlayer(Textures.Hero, confSet["id"]);
 									op.Desc = confSet["id"];
-									Position2D playerPos = new Position2D(int.Parse(confSet["x"]), int.Parse(confSet["y"]));
+									var playerPos = new Position2D(int.Parse(confSet["x"]), int.Parse(confSet["y"]));
 									op.Position = playerPos;
 									TheLoader.TheGame.TheGrid.GetBlockAt(playerPos).Entities.Add(op);
 									op.Health = int.Parse(confSet["hp"]);
@@ -451,50 +484,98 @@ namespace FadingWorldsClient
 						//}
 					}
 					break;
-				case "sy":
-					return ParseSystemCommand(parm);
-				case "mv":
-					string mobId = parm[0];
-					int mobCol = int.Parse(parm[1]);
-					int mobRow = int.Parse(parm[2]);
+                case PayloadType.System:
+                    try
+                    {
+                        //if (!parm.Any())
+                        //{
+                        //    // Unknown funny command
+                        //}
+                        //else
+                        //{
+                            switch (payload.Command)
+                            {
+                                //case "start-reconnect":
+                                //    Log(DateTime.Now.ToLongTimeString() + ": Starting reconnect sequence");
+                                //    TheLoader.StartReconnectSequence();
+                                //    return true;
+                                //case "whois":
+                                //    if (parm.Length >= 3)
+                                //        Log("(whois " + parm[1] + ")? " + parm[2]);
+                                //    return true;
+                                case PayloadCommand.LoggedInDifferentLocation:
+                                    TheLoader.TheGame.Exit();
+                                    return true;
+                                case PayloadCommand.Ping:
+                                    SendPayload(new NetworkPayload
+                                    {
+                                        Type = PayloadType.System,
+                                        Command = PayloadCommand.Pong
+                                    });
+                                    //SendCommand("sy|po");
+                                    return true;
+                                default:
+                                    if (payload.Params.Count > 0)
+                                    {
+                                        Log("SYSTEM: " + payload.Params[0]);
+                                        //Log(DateTime.Now.ToLongTimeString() + ": " + s[1]);
+                                    }
+                                    return true;
+                            }
+                        //}
+                        return true;
+                    }
+                    catch (ThreadAbortException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(ex.ToString());
+                        return true;
+                    }
+                case PayloadType.Move:
+                    string mobId = payload.Params[0];
+                    int mobCol = int.Parse(payload.Params[1]);
+                    int mobRow = int.Parse(payload.Params[2]);
 					LivingEntity mob = TheLoader.TheGame.GameObjects.GetById(mobId) as LivingEntity;
 					if (mob != null) {
 						mob.MoveTo(new Position2D(mobCol, mobRow));
-						Console.WriteLine(DateTime.Now.ToLongTimeString() + "MOVEMENT: " + mobId + " moved to " + mobCol + "x" + mobRow);
+						Log(DateTime.Now.ToLongTimeString() + "MOVEMENT: " + mobId + " moved to " + mobCol + "x" + mobRow);
 					}
 					else {
-						Console.WriteLine(DateTime.Now.ToLongTimeString() + "MOVEMENT: " + mobId + " NOT FOUND!!");
+						Log(DateTime.Now.ToLongTimeString() + "MOVEMENT: " + mobId + " NOT FOUND!!");
 					}
 
 
 					return true;
-				case "ec":
-					string[] entitychangelines = parm[0].Split('#');
-					foreach (string entitychangeline in entitychangelines) {
-						string[] entityChange = entitychangeline.Split('/');
+                case PayloadType.EntityChange:
+                    //string[] entitychangelines = payload.Params[0].Split('#');
+                    //foreach (string entitychangeline in entitychangelines) {
+                    //    string[] entityChange = entitychangeline.Split('/');
 
-						string entityId = entityChange[0];
-						string attribute = entityChange[1];
-						string deltaValue = entityChange[2];
-						string newValue = entityChange[3];
+                        string entityId = payload.Params[0];
+                        string attribute = payload.Params[1];
+                        string deltaValue = payload.Params[2];
+                        string newValue = payload.Params[3];
 
-						LivingEntity entity = TheLoader.TheGame.GameObjects.GetById(entityId) as LivingEntity;
+						var entity = TheLoader.TheGame.GameObjects.GetById(entityId) as LivingEntity;
 						if (entity != null) {
 							switch (attribute) {
 								case "die":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + " DIED CHANGE");
+									Log(DateTime.Now.ToLongTimeString() + " DIED CHANGE");
 									lock (TheLoader.TheGame.GameObjects) {
 										TheLoader.TheGame.GameObjects.RemoveById(entity.Id);
 									}
 									TheLoader.TheGame.TheGrid.GetBlockAt(entity.Position).Entities.RemoveById(entity.Id);
 									return true;
 								case "hp":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + " HP CHANGE: " + entityId + " changed to " + newValue +
+									Log(DateTime.Now.ToLongTimeString() + " HP CHANGE: " + entityId + " changed to " + newValue +
 									                  " -- delta " + deltaValue);
 									entity.Health += int.Parse(deltaValue);
 									if (entity.Health != int.Parse(newValue)) {
 										//throw new Exception("server and client hp out of sync: server=" + newValue + "/client=" + entity.Health);
-										Console.WriteLine(DateTime.Now.ToLongTimeString() + "Health server and client hp out of sync: server=" +
+										Log(DateTime.Now.ToLongTimeString() + "Health server and client hp out of sync: server=" +
 										                  newValue +
 										                  "/client=" + entity.Health);
 									}
@@ -505,87 +586,87 @@ namespace FadingWorldsClient
 									break;
 
 								case "maxhp":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + " MaxHealth CHANGE: " + entityId + " changed to " +
+									Log(DateTime.Now.ToLongTimeString() + " MaxHealth CHANGE: " + entityId + " changed to " +
 									                  newValue +
 									                  " -- delta " + deltaValue);
 									entity.MaxHealth += int.Parse(deltaValue);
 									if (entity.MaxHealth != int.Parse(newValue)) {
-										Console.WriteLine(DateTime.Now.ToLongTimeString() + " MaxHealth server and client hp out of sync: server=" +
+										Log(DateTime.Now.ToLongTimeString() + " MaxHealth server and client hp out of sync: server=" +
 										                  newValue +
 										                  "/client=" + entity.MaxHealth);
 									}
 									break;
 								case "mana":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + " Mana CHANGE: " + entityId + " changed to " + newValue +
+									Log(DateTime.Now.ToLongTimeString() + " Mana CHANGE: " + entityId + " changed to " + newValue +
 									                  " -- delta " + deltaValue);
 									entity.Mana += int.Parse(deltaValue);
 									if (entity.Mana != int.Parse(newValue)) {
-										Console.WriteLine(DateTime.Now.ToLongTimeString() + " Mana server and client hp out of sync: server=" +
+										Log(DateTime.Now.ToLongTimeString() + " Mana server and client hp out of sync: server=" +
 										                  newValue +
 										                  "/client=" + entity.Mana);
 									}
 									break;
 								case "maxmana":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + " MaxMana CHANGE: " + entityId + " changed to " + newValue +
+									Log(DateTime.Now.ToLongTimeString() + " MaxMana CHANGE: " + entityId + " changed to " + newValue +
 									                  " -- delta " + deltaValue);
 									entity.MaxMana += int.Parse(deltaValue);
 									if (entity.MaxMana != int.Parse(newValue)) {
-										Console.WriteLine(DateTime.Now.ToLongTimeString() + " MaxMana server and client hp out of sync: server=" +
+										Log(DateTime.Now.ToLongTimeString() + " MaxMana server and client hp out of sync: server=" +
 										                  newValue +
 										                  "/client=" + entity.MaxMana);
 									}
 									break;
 								case "xp":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + " ExperiencePoints CHANGE: " + entityId + " changed to " +
+									Log(DateTime.Now.ToLongTimeString() + " ExperiencePoints CHANGE: " + entityId + " changed to " +
 									                  newValue +
 									                  " -- delta " + deltaValue);
 									entity.ExperiencePoints += int.Parse(deltaValue);
 									if (entity.ExperiencePoints != int.Parse(newValue)) {
-										Console.WriteLine(DateTime.Now.ToLongTimeString() +
+										Log(DateTime.Now.ToLongTimeString() +
 										                  " ExperiencePoints server and client hp out of sync: server=" +
 										                  newValue +
 										                  "/client=" + entity.ExperiencePoints);
 									}
 									break;
 								case "ac":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + " ArmorClass CHANGE: " + entityId + " changed to " +
+									Log(DateTime.Now.ToLongTimeString() + " ArmorClass CHANGE: " + entityId + " changed to " +
 									                  newValue +
 									                  " -- delta " + deltaValue);
 									entity.ArmorClass += int.Parse(deltaValue);
 									if (entity.ArmorClass != int.Parse(newValue)) {
-										Console.WriteLine(DateTime.Now.ToLongTimeString() + " ArmorClass server and client hp out of sync: server=" +
+										Log(DateTime.Now.ToLongTimeString() + " ArmorClass server and client hp out of sync: server=" +
 										                  newValue +
 										                  "/client=" + entity.ArmorClass);
 									}
 									break;
 								case "ap":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + " AttackPower CHANGE: " + entityId + " changed to " +
+									Log(DateTime.Now.ToLongTimeString() + " AttackPower CHANGE: " + entityId + " changed to " +
 									                  newValue +
 									                  " -- delta " + deltaValue);
 									entity.AttackPower += int.Parse(deltaValue);
 									if (entity.AttackPower != int.Parse(newValue)) {
-										Console.WriteLine(DateTime.Now.ToLongTimeString() + " AttackPower server and client hp out of sync: server=" +
+										Log(DateTime.Now.ToLongTimeString() + " AttackPower server and client hp out of sync: server=" +
 										                  newValue +
 										                  "/client=" + entity.AttackPower);
 									}
 									break;
 								case "level":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + " Level CHANGE: " + entityId + " changed to " + newValue +
+									Log(DateTime.Now.ToLongTimeString() + " Level CHANGE: " + entityId + " changed to " + newValue +
 									                  " -- delta " + deltaValue);
 									entity.Level += int.Parse(deltaValue);
 									if (entity.Level != int.Parse(newValue)) {
-										Console.WriteLine(DateTime.Now.ToLongTimeString() + " Level server and client hp out of sync: server=" +
+										Log(DateTime.Now.ToLongTimeString() + " Level server and client hp out of sync: server=" +
 										                  newValue +
 										                  "/client=" + entity.Level);
 									}
 									break;
 								case "nextlevel":
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + "NextLevelAt CHANGE: " + entityId + " changed to " +
+									Log(DateTime.Now.ToLongTimeString() + "NextLevelAt CHANGE: " + entityId + " changed to " +
 									                  newValue +
 									                  " -- delta " + deltaValue);
 									entity.NextLevelAt += int.Parse(deltaValue);
 									if (entity.NextLevelAt != int.Parse(newValue)) {
-										Console.WriteLine(DateTime.Now.ToLongTimeString() + " NextLevelAt server and client hp out of sync: server=" +
+										Log(DateTime.Now.ToLongTimeString() + " NextLevelAt server and client hp out of sync: server=" +
 										                  newValue +
 										                  "/client=" + entity.NextLevelAt);
 									}
@@ -593,21 +674,21 @@ namespace FadingWorldsClient
 
 
 								default:
-									Console.WriteLine(DateTime.Now.ToLongTimeString() + "UNKNOWN CHANGE: " + entityId + " changed " + attribute +
+									Log(DateTime.Now.ToLongTimeString() + "UNKNOWN CHANGE: " + entityId + " changed " + attribute +
 									                  " to " + newValue + " -- delta " + deltaValue);
 
 									break;
 							}
 						}
 						else {
-							Console.WriteLine(DateTime.Now.ToLongTimeString() + "ENTITYCHANGE: " + entityId + " NOT FOUND!!");
-						}
+							Log(DateTime.Now.ToLongTimeString() + "ENTITYCHANGE: " + entityId + " NOT FOUND!!");
 					}
+                    //}
 
 
 					return true;
 				default:
-					throw new Exception("Unknown (opCode): '" + opCode + "'");
+					throw new Exception("Unknown (opCode): '" + payload.Type + "'");
 			}
 
 			// Default to true
@@ -620,104 +701,57 @@ namespace FadingWorldsClient
 		/// </summary>
 		/// <param name="input"></param>
 		/// <returns></returns>
-		private bool ParseInput(string input) {
-			string[] parameters = {};
-			string[] primaryParts = input.Split(_delimPipe, 2);
-			if (primaryParts.Length > 1) {
-				parameters = primaryParts[1].Split(_delimPipe);
-			}
-			return HandleCode(primaryParts[0].Trim().ToLower(), parameters);
+        //private bool ParseInput(string input) {
+        //    string[] parameters = {};
+        //    string[] primaryParts = input.Split(_delimPipe, 2);
+        //    if (primaryParts.Length > 1) {
+        //        parameters = primaryParts[1].Split(_delimPipe);
+        //    }
+        //    return HandleCode(primaryParts[0].Trim().ToLower(), parameters);
 
-			//try {
+        //    //try {
 
+        //    //}
+        //    //catch
+        //    //  (ThreadAbortException) {
+        //    //  throw;
+        //    //}
+        //    //catch
+        //    //  (Exception
+        //    //    ex) {
+        //    //  Log(ex.ToString());
+        //    //  return true;
+        //    //}
 			//}
-			//catch
-			//  (ThreadAbortException) {
-			//  throw;
-			//}
-			//catch
-			//  (Exception
-			//    ex) {
-			//  Console.WriteLine(ex.ToString());
-			//  return true;
-			//}
-		}
 
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="parm"></param>
-		/// <returns></returns>
-		private bool ParseSystemCommand(string[] parm) {
-			try {
-				if (!parm.Any()) {
-					// Unknown funny command
-				}
-				else {
-					switch (parm[0]) {
-						case "start-reconnect":
-							Console.WriteLine(DateTime.Now.ToLongTimeString() + ": Starting reconnect sequence");
-							TheLoader.StartReconnectSequence();
-							return true;
-						case "whois":
-							if (parm.Length >= 3)
-								Console.WriteLine("(whois " + parm[1] + ")? " + parm[2]);
-							return true;
-						case "logged-in-on-another-location":
-							TheLoader.TheGame.Exit();
-							return true;
-						case "pi":
-							SendCommand("sy|po");
-							return true;
-						default:
-							if (parm.Length >= 1) {
-								Console.WriteLine("SYSTEM: " + parm[0]);
-								//Console.WriteLine(DateTime.Now.ToLongTimeString() + ": " + s[1]);
-							}
-							return true;
-					}
-				}
-				return true;
-			}
-			catch (ThreadAbortException) {
-				throw;
-			}
-			catch (Exception ex) {
-				Console.WriteLine(ex.ToString());
-				return true;
-			}
-		}
 
 		#region IDisposable Members
 
-		public
-			void Dispose
-			() {
-			if (_sslSecureStream != null) {}
-			_sslSecureStream = null;
+		public void Dispose() {
+            //if (_sslSecureStream != null) {}
+            //_sslSecureStream = null;
 
-			if (_clientWriter != null) {
-				_clientWriter.Close();
-				_clientWriter.Dispose();
-			}
-			if (_clientReader != null) {
-				_clientReader.Close();
-				_clientReader.Dispose();
-			}
-			_clientWriter = null;
-			_clientReader = null;
+            //if (_clientWriter != null) {
+            //    _clientWriter.Close();
+            //    _clientWriter.Dispose();
+            //}
+            //if (_clientReader != null) {
+            //    _clientReader.Close();
+            //    _clientReader.Dispose();
+            //}
+            //_clientWriter = null;
+            //_clientReader = null;
 
-			if (_client != null) {
-				//client.
-				if (_client.Client != null) {
-					_client.Client.Close();
-					_client.Client = null;
-				}
-				_client.Close();
-			}
+            //if (_client != null) {
+            //    //client.
+            //    if (_client.Client != null) {
+            //        _client.Client.Close();
+            //        _client.Client = null;
+            //    }
+            //    _client.Close();
+            //}
 
-			_client = null;
+            //_client = null;
 		}
 
 		#endregion
