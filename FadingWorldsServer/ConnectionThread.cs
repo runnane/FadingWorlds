@@ -12,16 +12,11 @@ using fwlib;
 using ProtoBuf;
 
 namespace FadingWorldsServer{
-	internal enum ConnectionState {
-		NotConnected,
-		Connected,
-		LoggedIn
-	}
-
-	public class ConnectionThread : IDisposable {
+    public class ConnectionThread : IDisposable {
 		#region Private members
 
 		private readonly TcpClient _client;
+        private readonly FadingWorldsServer _server;
 		private DateTime _lastPacketRecieved;
 		private DateTime _lastActivity;
 		private DateTime _loginTime = DateTime.Now;
@@ -41,11 +36,12 @@ namespace FadingWorldsServer{
 
 		#region Constructors
 
-		public ConnectionThread(TcpClient c) {
+		public ConnectionThread(TcpClient c, FadingWorldsServer p) {
 			_state = ConnectionState.NotConnected;
 			_randomConId = new Random().Next(1000000, 9999999).ToString();
 			ConsoleWrite("New connection from " + c.Client.RemoteEndPoint);
 
+		    _server = p;
 			_client = c;
 			_isClosed = false;
 			_threadId = Thread.CurrentThread.GetHashCode();
@@ -267,7 +263,7 @@ namespace FadingWorldsServer{
 	                    ConsoleWrite("Missing parametres to auth command");
 	                    return false;
 	                }
-                    string command = payload.Params[0];
+                   
 	                switch (payload.Command)
 	                {
 	                    case  PayloadCommand.Helo:
@@ -282,10 +278,12 @@ namespace FadingWorldsServer{
 	                            //    SendCommand("au|oldversion");
 	                            //    return false;
 	                            //}
+                                ConsoleWrite("Client connecting with version " + _clientVersion);
 	                            SendPayload(new NetworkPayload()
 	                            {
 	                                Type = PayloadType.Auth,
-	                                Command = PayloadCommand.AuthPlease
+	                                Command = PayloadCommand.AuthPlease,
+                                    Params = { _server.Version }
 	                            });
 	                           // SendCommand("au|authplease");
 	                            return true;
@@ -315,7 +313,6 @@ namespace FadingWorldsServer{
                                         Type = PayloadType.Auth,
                                         Command = PayloadCommand.Fail
                                     });
-	                               // SendCommand("au|failed");
 	                                return false;
 	                            }
 

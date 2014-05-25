@@ -170,6 +170,7 @@ namespace FadingWorldsClient
                     switch (payload.Command)
                     {
                         case PayloadCommand.AuthPlease:
+                            Log("Starting auth against server with version " + payload.Params[0]);
                             if (_loggedInUser == null)
                             {
                                 SendPayload(new NetworkPayload
@@ -189,7 +190,7 @@ namespace FadingWorldsClient
                             return false;
 
                         case PayloadCommand.Fail:
-                            TheLoader.Message("Login failed!");
+                            Log("Login failed!");
                             return false;
 
                         case PayloadCommand.Success:

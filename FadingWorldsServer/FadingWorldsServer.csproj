@@ -44,6 +44,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConnectionState.cs" />
     <Compile Include="ConnectionThread.cs" />
     <Compile Include="FadingWorldsServer.cs" />
     <Compile Include="GameObjects\Blocks\Block.cs" />

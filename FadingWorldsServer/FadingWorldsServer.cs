@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Dynamic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -124,9 +125,11 @@ namespace FadingWorldsServer {
 			gt.Updated();
 		}
 
-		public void TCPConnectionHandler(Object connection) {
+        public void TCPConnectionHandler(object connection)
+        {
+
 			try {
-				var ct = new ConnectionThread((TcpClient) connection);
+                var ct = new ConnectionThread(((ThreadStartParameters)connection).Client, ((ThreadStartParameters)connection).Server);
 				TCPPool.Add(ref ct);
 				ct.StartListen();
 			}
@@ -139,27 +142,28 @@ namespace FadingWorldsServer {
 		/// 
 		/// </summary>
 		public void TCPListenerHandler() {
-			TcpListener serverListenerTCP = null;
+			TcpListener serverListenerTcp = null;
 
 			try {
-				serverListenerTCP = new TcpListener(IPAddress.Any, TCPLocalPort);
-				serverListenerTCP.Start();
+				serverListenerTcp = new TcpListener(IPAddress.Any, TCPLocalPort);
+				serverListenerTcp.Start();
 				Console.WriteLine("Client system on tcp://0.0.0.0:" + TCPLocalPort + " started OK (ThreadID=" +
 				                  _tcpThread.ManagedThreadId + ")");
 				while (true) {
-					var connection = serverListenerTCP.AcceptTcpClient();
-					var t = new Thread(TCPConnectionHandler)
+					var connection = serverListenerTcp.AcceptTcpClient();
+					//var t = new Thread(new ParameterizedThreadStart(TCPConnectionHandler))
+                    var t = new Thread(TCPConnectionHandler)
 					{
 					    Name = "Client ConnectionThread [" + connection.Client.RemoteEndPoint + "]"
 					};
-					t.Start(connection);
+                    t.Start(new ThreadStartParameters { Client = connection, Server = this });
 				}
 			}
 			catch (Exception e) {
 				Console.WriteLine(e.ToString());
 			}
 			finally {
-				if (serverListenerTCP != null) serverListenerTCP.Stop();
+				if (serverListenerTcp != null) serverListenerTcp.Stop();
 			}
 		}
 
@@ -199,4 +203,10 @@ namespace FadingWorldsServer {
 			}
 		}
 	}
+
+    public class ThreadStartParameters
+    {
+        public TcpClient Client { get; set; }
+        public FadingWorldsServer Server { get; set; }
+    }
 }
