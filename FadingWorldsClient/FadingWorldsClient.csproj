@@ -36,7 +36,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <ApplicationIcon>Game.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>FadingWorldsClient.FadingWorldBase</StartupObject>

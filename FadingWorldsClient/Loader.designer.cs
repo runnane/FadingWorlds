@@ -40,6 +40,8 @@ namespace FadingWorldsClient
             this.label1 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
             this.label3 = new System.Windows.Forms.Label();
+            this.label4 = new System.Windows.Forms.Label();
+            this.txtServerVersion = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // btnLogin
@@ -47,7 +49,7 @@ namespace FadingWorldsClient
             this.btnLogin.Location = new System.Drawing.Point(74, 89);
             this.btnLogin.Name = "btnLogin";
             this.btnLogin.Size = new System.Drawing.Size(75, 23);
-            this.btnLogin.TabIndex = 0;
+            this.btnLogin.TabIndex = 4;
             this.btnLogin.Text = "Log in";
             this.btnLogin.UseVisualStyleBackColor = true;
             this.btnLogin.Click += new System.EventHandler(this.btnLogin_Click);
@@ -57,14 +59,14 @@ namespace FadingWorldsClient
             this.txtUsername.Location = new System.Drawing.Point(74, 36);
             this.txtUsername.Name = "txtUsername";
             this.txtUsername.Size = new System.Drawing.Size(181, 20);
-            this.txtUsername.TabIndex = 1;
+            this.txtUsername.TabIndex = 2;
             // 
             // txtPassword
             // 
             this.txtPassword.Location = new System.Drawing.Point(74, 63);
             this.txtPassword.Name = "txtPassword";
             this.txtPassword.Size = new System.Drawing.Size(181, 20);
-            this.txtPassword.TabIndex = 2;
+            this.txtPassword.TabIndex = 3;
             this.txtPassword.Text = "password";
             this.txtPassword.UseSystemPasswordChar = true;
             // 
@@ -75,7 +77,7 @@ namespace FadingWorldsClient
             this.txtOutput.Name = "txtOutput";
             this.txtOutput.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             this.txtOutput.Size = new System.Drawing.Size(699, 382);
-            this.txtOutput.TabIndex = 3;
+            this.txtOutput.TabIndex = 5;
             this.txtOutput.Text = "Fading Worlds Loader Init";
             // 
             // txtHost
@@ -83,7 +85,7 @@ namespace FadingWorldsClient
             this.txtHost.Location = new System.Drawing.Point(74, 10);
             this.txtHost.Name = "txtHost";
             this.txtHost.Size = new System.Drawing.Size(181, 20);
-            this.txtHost.TabIndex = 4;
+            this.txtHost.TabIndex = 1;
             this.txtHost.Text = "mildred.runnane.no";
             // 
             // label1
@@ -114,11 +116,29 @@ namespace FadingWorldsClient
             this.label3.TabIndex = 5;
             this.label3.Text = "Password";
             // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(390, 13);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(76, 13);
+            this.label4.TabIndex = 6;
+            this.label4.Text = "Server Version";
+            // 
+            // txtServerVersion
+            // 
+            this.txtServerVersion.Location = new System.Drawing.Point(472, 13);
+            this.txtServerVersion.Name = "txtServerVersion";
+            this.txtServerVersion.Size = new System.Drawing.Size(100, 20);
+            this.txtServerVersion.TabIndex = 7;
+            // 
             // Loader
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(723, 512);
+            this.Controls.Add(this.txtServerVersion);
+            this.Controls.Add(this.label4);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
@@ -147,5 +167,7 @@ namespace FadingWorldsClient
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.Label label2;
 		private System.Windows.Forms.Label label3;
+        private Label label4;
+        private TextBox txtServerVersion;
 	}
 }
