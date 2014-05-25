@@ -16,8 +16,8 @@ namespace FadingWorldsClient
 	/// <summary>
 	/// This is the main type for your game
 	/// </summary>
-	public class FadingWorldsApp : Game {
-		public static FadingWorldsApp Instance { get; set; }
+	public class FadingWorldsGameWindow : Game {
+		public static FadingWorldsGameWindow Instance { get; set; }
 
 		internal SpriteBatch SpriteBatch;
 		internal Dictionary<string, SpriteFont> Fonts;
@@ -64,7 +64,7 @@ namespace FadingWorldsClient
 		internal Loader TheLoader;
 
 
-		public FadingWorldsApp(Loader l, string[] strings) {
+		public FadingWorldsGameWindow(Loader l, string[] strings) {
 			IsRunning = true;
 			IsLoaded = false;
 			_parms = strings;
@@ -118,7 +118,7 @@ namespace FadingWorldsClient
 
 			EmptyTexture = new Texture2D(GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
 			EmptyTexture.SetData(new[] {Color.White});
-			var username = TheLoader.connectionLoop.GetLoggedInUser();
+			var username = TheLoader.ConnectionLoop.GetLoggedInUser();
 
 			ThePlayer = new Player(Textures.Hero, username) {Desc = username, Id = username};
 
@@ -307,8 +307,6 @@ namespace FadingWorldsClient
 
         protected override void OnExiting(object sender, EventArgs args)
         {
-            //TheLoader.SetVisible(true);
-            //TheLoader.Exit();
             TheLoader.Disconnect();
             base.OnExiting(sender, args);
         }

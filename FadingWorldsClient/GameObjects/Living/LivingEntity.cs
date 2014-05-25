@@ -43,15 +43,15 @@ namespace FadingWorldsClient.GameObjects.Living
 		}
 
 		internal override void Update(GameTime gameTime) {
-			Location = FadingWorldsApp.Instance.GetVectorByPos(Position);
+			Location = FadingWorldsGameWindow.Instance.GetVectorByPos(Position);
 			if (Health <= 0) {
-				lock (FadingWorldsApp.Instance.GameObjects) {
+				lock (FadingWorldsGameWindow.Instance.GameObjects) {
 					if (EntityType == EntityType.Player) {
 						// player died
 					}
 					else if (EntityType == EntityType.Monster) {
-						FadingWorldsApp.Instance.GameObjects.Remove(this);
-						FadingWorldsApp.Instance.TheGrid.GetBlockAt(Position).Entities.Remove(this);
+						FadingWorldsGameWindow.Instance.GameObjects.Remove(this);
+						FadingWorldsGameWindow.Instance.TheGrid.GetBlockAt(Position).Entities.Remove(this);
 					}
 				}
 				return;
@@ -69,12 +69,12 @@ namespace FadingWorldsClient.GameObjects.Living
 		internal override void PostMove(MoveResult mv, Position2D pos) {
 			base.PostMove(mv, pos);
 			if (mv == MoveResult.CannotMoveLivingEntityInTheWay) {
-				var targetEntity = FadingWorldsApp.Instance.TheGrid.GetBlockAt(pos).Entities.LivingEntity as LivingEntity;
+				var targetEntity = FadingWorldsGameWindow.Instance.TheGrid.GetBlockAt(pos).Entities.LivingEntity as LivingEntity;
 				if (targetEntity != null && (this is Player)) {
-                    //FadingWorldsApp.Instance.TheLoader.connectionLoop.SendCommand("at|" + targetEntity.Id + "|" +
+                    //FadingWorldsGameWindow.Instance.TheLoader.connectionLoop.SendCommand("at|" + targetEntity.Id + "|" +
                     //                                                              targetEntity.Position.X + "|" +
                     //                                                              targetEntity.Position.Y);
-                    FadingWorldsApp.Instance.TheLoader.connectionLoop.SendPayload(new NetworkPayload
+                    FadingWorldsGameWindow.Instance.TheLoader.ConnectionLoop.SendPayload(new NetworkPayload
                     {
                         Type = PayloadType.Attack,
                         Params = { targetEntity.Id, ""+targetEntity.Position.X, ""+targetEntity.Position.Y }
@@ -101,26 +101,26 @@ namespace FadingWorldsClient.GameObjects.Living
 			}
 
 
-			Vector2 v = FadingWorldsApp.Instance.GetVectorByPos(Position);
-			spriteBatch.Draw(FadingWorldsApp.Instance.EmptyTexture, new Rectangle((int) v.X, (int) v.Y - 8, 32, 7),
+			Vector2 v = FadingWorldsGameWindow.Instance.GetVectorByPos(Position);
+			spriteBatch.Draw(FadingWorldsGameWindow.Instance.EmptyTexture, new Rectangle((int) v.X, (int) v.Y - 8, 32, 7),
 			                 Color.Black);
-			spriteBatch.Draw(FadingWorldsApp.Instance.EmptyTexture, new Rectangle((int) v.X + 1, (int) v.Y - 7, width, 5),
+			spriteBatch.Draw(FadingWorldsGameWindow.Instance.EmptyTexture, new Rectangle((int) v.X + 1, (int) v.Y - 7, width, 5),
 			                 col);
 		}
 
 		private void DrawInfoBox(SpriteBatch spriteBatch) {
-			Vector2 v = FadingWorldsApp.Instance.GetVectorByPos(Position);
-			spriteBatch.Draw(FadingWorldsApp.Instance.EmptyTexture, new Rectangle((int) v.X + 31, (int) v.Y + 4, 122, 32),
+			Vector2 v = FadingWorldsGameWindow.Instance.GetVectorByPos(Position);
+			spriteBatch.Draw(FadingWorldsGameWindow.Instance.EmptyTexture, new Rectangle((int) v.X + 31, (int) v.Y + 4, 122, 32),
 			                 Color.Black);
-			spriteBatch.Draw(FadingWorldsApp.Instance.EmptyTexture, new Rectangle((int) v.X + 32, (int) v.Y + 5, 120, 30),
+			spriteBatch.Draw(FadingWorldsGameWindow.Instance.EmptyTexture, new Rectangle((int) v.X + 32, (int) v.Y + 5, 120, 30),
 			                 Color.White);
 
-			spriteBatch.DrawString(FadingWorldsApp.Instance.Fonts["Tempesta7"], Id,
-			                       FadingWorldsApp.Instance.GetVectorByPos(Position) + new Vector2(33, 2),
+			spriteBatch.DrawString(FadingWorldsGameWindow.Instance.Fonts["Tempesta7"], Id,
+			                       FadingWorldsGameWindow.Instance.GetVectorByPos(Position) + new Vector2(33, 2),
 			                       Color.Black);
 
-			spriteBatch.DrawString(FadingWorldsApp.Instance.Fonts["Tempesta7"], Health + "/" + MaxHealth,
-			                       FadingWorldsApp.Instance.GetVectorByPos(Position) + new Vector2(33, 10),
+			spriteBatch.DrawString(FadingWorldsGameWindow.Instance.Fonts["Tempesta7"], Health + "/" + MaxHealth,
+			                       FadingWorldsGameWindow.Instance.GetVectorByPos(Position) + new Vector2(33, 10),
 			                       Color.Green);
 		}
 	}

@@ -44,7 +44,7 @@
   <ItemGroup>
     <Compile Include="ConnectionLoop.cs" />
     <Compile Include="FadingWorldBase.cs" />
-    <Compile Include="FadingWorldsApp.cs" />
+    <Compile Include="FadingWorldsGameWindow.cs" />
     <Compile Include="GameObjects\Blocks\Block.cs" />
     <Compile Include="GameObjects\Blocks\Grass.cs" />
     <Compile Include="GameObjects\Blocks\Stone.cs" />

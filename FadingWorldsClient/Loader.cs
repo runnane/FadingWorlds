@@ -1,14 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using fwlib;
 
@@ -20,22 +13,23 @@ namespace FadingWorldsClient
 		LoggingIn,
 		LoggedIn,
 		WaitingForMap,
-		Running
+		Running,
+        StoppingGameWindow
 	}
 
 	public partial class Loader : Form {
-		internal FadingWorldsApp TheGame;
-		private Thread socketThread = null;
-		private Thread gameThread = null;
-		internal ConnectionLoop connectionLoop = null;
+		internal FadingWorldsGameWindow TheGame;
+		private Thread _socketThread;
+		private Thread _gameThread;
+		internal ConnectionLoop ConnectionLoop = null;
 		public GameState State { get; set; }
-
+	    public bool ConnectionAlive = true;
 
         public string Version { get; set; }
 
-		private string username;
-		private string password;
-		private string hostname;
+		private string _username;
+		private string _password;
+		private string _hostname;
 
 
 		public Loader() {
@@ -95,37 +89,35 @@ namespace FadingWorldsClient
 		}
 
 		public void StartConnect() {
-			//// Starting UDP:
-			//udpListenerThread.Start();
-			hostname = txtHost.Text;
-			username = txtUsername.Text;
-			password = txtPassword.Text;
-
+			_hostname = txtHost.Text;
+			_username = txtUsername.Text;
+			_password = txtPassword.Text;
 
 			// Starting tcp con
             Message("StartConnect() Creating new thread");
-			socketThread = new Thread(InitiateConnectionThread) {Name = "ConnectionThread"};
-			socketThread.Start();
+			_socketThread = new Thread(InitiateConnectionThread) {Name = "ConnectionThread"};
+			_socketThread.Start();
 
 		}
 
 		public void InitiateConnectionThread() {
 			try {
                 Message("InitiateConnectionThread() Thread started, connecting.");
-				connectionLoop = new ConnectionLoop(this);
-				connectionLoop.StartConnect(hostname, 4100, username, password);
-				connectionLoop.Disconnect();
-				connectionLoop = null;
-
+				ConnectionLoop = new ConnectionLoop(this);
+				ConnectionLoop.StartConnect(_hostname, 4100, _username, _password);
+				ConnectionLoop.Disconnect();
+				//ConnectionLoop = null;
+                Message("InitiateConnectionThread() stopped after Run()");
 			}
 			catch (ThreadAbortException ex) {
+                Console.WriteLine(ex.ToString());
 				throw ex;
 			}
 			catch (Exception ex) {
 				Console.WriteLine(ex.ToString());
-				if (connectionLoop != null) {
-					connectionLoop.Disconnect();
-					connectionLoop = null;
+				if (ConnectionLoop != null) {
+					ConnectionLoop.Disconnect();
+					ConnectionLoop = null;
 				}
 				// TODO: FixMe
 			}
@@ -140,51 +132,41 @@ namespace FadingWorldsClient
 			s[2] = mapData;
 
             Message("SpawnGame() Creating new thread");
-			gameThread = new Thread(InitiateGameThread) {Name = "GameThread"};
-			gameThread.Start(s);
+			_gameThread = new Thread(InitiateGameThread) {Name = "GameThread"};
+			_gameThread.Start(s);
 			State = GameState.Starting;
 		}
-											
 
-		public void InitiateGameThread(object o) {
-            try
-            {
-            TheGame = new FadingWorldsApp(this, (string[])o);
-            TheGame.Run();
-            }
-            catch (ThreadAbortException ex)
-            {
-                throw ex;
-            }
-            //catch (Exception ex)
-            //{
-            //    Message(ex.ToString());
-            //    // TODO: FixMe
-            //}
-            Message("Completed");
-		}
 
-		private void Loader_FormClosed(object sender, FormClosedEventArgs e) {
+	    public void InitiateGameThread(object o)
+	    {
+            Message("InitiateGameThread() starting"); 
+            TheGame = new FadingWorldsGameWindow(this, (string[])o);
+	        TheGame.Run();
+	        Message("InitiateGameThread() stopped after Run()");
+	    }
+
+	    private void Loader_FormClosed(object sender, FormClosedEventArgs e) {
 		}
 
 		private void Loader_FormClosing(object sender, FormClosingEventArgs e)
 		{
-			if (connectionLoop != null && connectionLoop.IsConnected)
+			if (ConnectionLoop != null && ConnectionLoop.IsConnected)
 			{
-				connectionLoop.Disconnect();
+				ConnectionLoop.Disconnect();
 			}
-			if (connectionLoop != null)
+			if (ConnectionLoop != null)
 			{
 				//
 			}
-			if (gameThread != null)
+			if (_gameThread != null)
 			{
-                gameThread.Abort();
+                _gameThread.Abort();
 				//gameThread.Join();
 			}
-			if (socketThread != null)
+			if (_socketThread != null)
 			{
-                socketThread.Abort();
+                _socketThread.Abort();
 				//socketThread.Join();
 			}
 			//	Close();
@@ -198,9 +180,8 @@ namespace FadingWorldsClient
 			{
 				BeginInvoke(new ExitDelegate(Exit));
 			}else {
-				if(connectionLoop != null && connectionLoop.IsConnected) {
-                    //connectionLoop.SendCommand("qt");
-                    connectionLoop.SendPayload(new NetworkPayload { Type = PayloadType.Quit});
+				if(ConnectionLoop != null && ConnectionLoop.IsConnected) {
+                    ConnectionLoop.SendPayload(new NetworkPayload { Type = PayloadType.Quit});
 				}
 				Close();
 			}
@@ -216,7 +197,6 @@ namespace FadingWorldsClient
 			}
 			else
 			{
-				//MessageBox.Show(text);
 			    txtOutput.Text += "\r\n" + text;
                 txtOutput.SelectionStart = txtOutput.Text.Length;
                 txtOutput.ScrollToCaret();
@@ -236,9 +216,12 @@ namespace FadingWorldsClient
 
 	    public void Disconnect()
 	    {
-	        connectionLoop.Disconnect();
-            socketThread.Abort();
-            gameThread.Abort();
+            Message("Loader.Disconnect() called"); 
+            State = GameState.StoppingGameWindow;
+            ConnectionLoop.Disconnect();
+	        ConnectionLoop = null;
+            State = GameState.InLoader;
+            Message("Loader.Disconnect() completed");
 	    }
 	}
 }

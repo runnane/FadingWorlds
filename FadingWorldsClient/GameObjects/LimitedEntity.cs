@@ -10,7 +10,7 @@ namespace FadingWorldsClient.GameObjects
 			: base(texturename, Helper.RandomString(20)) {
 			TimeLeft = timeToShow;
 			Position = pos;
-			Location = FadingWorldsApp.Instance.GetVectorByPos(pos);
+			Location = FadingWorldsGameWindow.Instance.GetVectorByPos(pos);
 
 		}
 	}

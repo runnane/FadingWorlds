@@ -57,11 +57,11 @@ namespace FadingWorldsClient.GameObjects
 			SetTexture(tex);
 			Angle = 0f;
 			Position = new Position2D(1, 1);
-			Location = new Vector2(FadingWorldsApp.Instance.Screenwidth/2f, FadingWorldsApp.Instance.Screenheight/2f);
+			Location = new Vector2(FadingWorldsGameWindow.Instance.Screenwidth/2f, FadingWorldsGameWindow.Instance.Screenheight/2f);
 		}
 
 		internal void SetTexture(Textures tex) {
-			Sprite = new Sprite(FadingWorldsApp.Instance.Content, "sprites", tex);
+			Sprite = new Sprite(FadingWorldsGameWindow.Instance.Content, "sprites", tex);
 		}
 
 
@@ -91,9 +91,9 @@ namespace FadingWorldsClient.GameObjects
 		}
 
 		public MoveResult CanMove(Position2D pos) {
-			if (FadingWorldsApp.Instance.TheGrid.GetBlockAt(pos).IsBlocking)
+			if (FadingWorldsGameWindow.Instance.TheGrid.GetBlockAt(pos).IsBlocking)
 				return MoveResult.CannotMoveBlocked;
-			if (FadingWorldsApp.Instance.TheGrid.GetBlockAt(pos).Entities.LivingEntity != null) {
+			if (FadingWorldsGameWindow.Instance.TheGrid.GetBlockAt(pos).Entities.LivingEntity != null) {
 				return MoveResult.CannotMoveLivingEntityInTheWay;
 			}
 			return MoveResult.Moved;
@@ -104,18 +104,18 @@ namespace FadingWorldsClient.GameObjects
 			var result = CanMove(newpos);
 			if (result == MoveResult.Moved) {
 				if ((this is Player)) {
-                    //FadingWorldsApp.Instance.TheLoader.connectionLoop.SendCommand("mv|self|" + newpos.X + "|" + newpos.Y);
-                    FadingWorldsApp.Instance.TheLoader.connectionLoop.SendPayload(new NetworkPayload
+                    //FadingWorldsGameWindow.Instance.TheLoader.connectionLoop.SendCommand("mv|self|" + newpos.X + "|" + newpos.Y);
+                    FadingWorldsGameWindow.Instance.TheLoader.ConnectionLoop.SendPayload(new NetworkPayload
                     {
                         Type = PayloadType.Move,
                         Params = new List<string>{ "self", "" + newpos.X, "" + newpos.Y }
 
                     });
 				}
-				FadingWorldsApp.Instance.TheGrid.GetBlockAt(Position).MoveEntity(this,
-				                                                                 FadingWorldsApp.Instance.TheGrid.GetBlockAt(newpos));
-				//FadingWorldsApp.Instance.TheGrid.GetBlockAt(Position).Entities.Remove(this);
-				//FadingWorldsApp.Instance.TheGrid.GetBlockAt(newpos).Entities.Add(this);
+				FadingWorldsGameWindow.Instance.TheGrid.GetBlockAt(Position).MoveEntity(this,
+				                                                                 FadingWorldsGameWindow.Instance.TheGrid.GetBlockAt(newpos));
+				//FadingWorldsGameWindow.Instance.TheGrid.GetBlockAt(Position).Entities.Remove(this);
+				//FadingWorldsGameWindow.Instance.TheGrid.GetBlockAt(newpos).Entities.Add(this);
 				Position = newpos;
 			}
 			PostMove(result, newpos);
@@ -132,7 +132,7 @@ namespace FadingWorldsClient.GameObjects
 					Position2D newpos1 = new Position2D(Position.X, Position.Y);
 					if (Position.Y == 0)
 					{
-						newpos1.Y = FadingWorldsApp.Instance.TheGrid.Height - 1;
+						newpos1.Y = FadingWorldsGameWindow.Instance.TheGrid.Height - 1;
 					}
 					else
 					{
@@ -142,7 +142,7 @@ namespace FadingWorldsClient.GameObjects
 
                 case fwlib.Direction.Down:
 					Position2D newpos2 = new Position2D(Position.X, Position.Y);
-					if (Position.Y >= FadingWorldsApp.Instance.TheGrid.Height - 1)
+					if (Position.Y >= FadingWorldsGameWindow.Instance.TheGrid.Height - 1)
 					{
 						newpos2.Y = 0;
 					}
@@ -154,7 +154,7 @@ namespace FadingWorldsClient.GameObjects
 
                 case fwlib.Direction.Right:
 					Position2D newpos3 = new Position2D(Position.X, Position.Y);
-					if (Position.X >= FadingWorldsApp.Instance.TheGrid.Width - 1)
+					if (Position.X >= FadingWorldsGameWindow.Instance.TheGrid.Width - 1)
 					{
 						newpos3.X = 0;
 					}
@@ -167,7 +167,7 @@ namespace FadingWorldsClient.GameObjects
 					Position2D newpos4 = new Position2D(Position.X, Position.Y);
 					if (Position.X == 0)
 					{
-						newpos4.X = FadingWorldsApp.Instance.TheGrid.Width - 1;
+						newpos4.X = FadingWorldsGameWindow.Instance.TheGrid.Width - 1;
 					}
 					else
 					{

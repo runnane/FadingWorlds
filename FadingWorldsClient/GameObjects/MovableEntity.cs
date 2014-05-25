@@ -30,7 +30,7 @@ namespace FadingWorldsClient.GameObjects
 		public bool ShouldBeRemoved() {
 			if (!RemoveWhenOutOfBounds)
 				return false;
-			if (Location.X < 0 || Location.X > FadingWorldsApp.Instance.Screenwidth || Location.Y < 0 || Location.Y > FadingWorldsApp.Instance.Screenheight)
+			if (Location.X < 0 || Location.X > FadingWorldsGameWindow.Instance.Screenwidth || Location.Y < 0 || Location.Y > FadingWorldsGameWindow.Instance.Screenheight)
 				return true;
 			return false;
 		}
@@ -45,9 +45,9 @@ namespace FadingWorldsClient.GameObjects
 
 		internal override void Update(GameTime gameTime) {
 			// Enable gravity
-			if (FadingWorldsApp.Instance.GravityEnabled)
+			if (FadingWorldsGameWindow.Instance.GravityEnabled)
 			{
-				Acceleration += FadingWorldsApp.Instance.Gravity * 0.03f;
+				Acceleration += FadingWorldsGameWindow.Instance.Gravity * 0.03f;
 			}
 
 			if (UseTarget) {
@@ -67,8 +67,8 @@ namespace FadingWorldsClient.GameObjects
 
 			// Remove if out of bounds
 			if (ShouldBeRemoved()) {
-				lock (FadingWorldsApp.Instance.BlockObjects) {
-					FadingWorldsApp.Instance.BlockObjects.Remove(this);
+				lock (FadingWorldsGameWindow.Instance.BlockObjects) {
+					FadingWorldsGameWindow.Instance.BlockObjects.Remove(this);
 				}
 			}
 			base.Update(gameTime);
