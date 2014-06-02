@@ -156,7 +156,7 @@ namespace FadingWorldsClient
 			}
 
 
-			// DOwn
+			// Down
 			if (Keyboard.GetState().IsKeyDown(Keys.Down) && !ButtonList["Down"]) {
 				ThePlayer.TryMove(Direction.Down);
 				//_keyMoved = true;
@@ -212,7 +212,7 @@ namespace FadingWorldsClient
 			if (GameObjects != null) {
 				lock (GameObjects) {
 					for (int i = GameObjects.Count - 1; i >= 0; i--) {
-						var gameObject = GameObjects[i] as Entity;
+						var gameObject = GameObjects[i];
 						gameObject.Update(gameTime);
 					}
 				}

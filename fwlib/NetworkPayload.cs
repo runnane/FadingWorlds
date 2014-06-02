@@ -9,7 +9,7 @@ namespace fwlib
         Unset,
         System,
         Auth,
-        Message, 
+        Message,
         Move,
         Data,
         Quit,
@@ -68,7 +68,31 @@ namespace fwlib
 
         public override string ToString()
         {
-            return Type + ": " + Command;
+            var s = String.Empty;
+            //s += "Payload -";
+            switch (Type)
+            {
+                case PayloadType.Unset:
+                    s += " EMPTY payload!";
+                    break;
+
+                    case PayloadType.Move:
+                    s += "[move] " + Params[0] + " -> " + Params[1] + "x" + Params[2];
+                    break;
+                default:
+                    s += " [" + Type + "] ";
+                    switch (Command)
+                    {
+                        case PayloadCommand.Unset:
+                            break;
+
+                        default:
+                            s += " [" + Command + "] ";
+                            break;
+                    }
+                    break;
+            }
+            return s;
         }
     }
 }

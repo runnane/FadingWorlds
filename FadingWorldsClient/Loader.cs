@@ -57,6 +57,18 @@ namespace FadingWorldsClient
 			}
 		}
 
+	    internal delegate void ThreadSafeSetDelegate(string input, TextBoxBase tb);
+        internal void ThreadSafeSet(string input, TextBoxBase tb)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new ThreadSafeSetDelegate(ThreadSafeSet), input, tb);
+            }
+            else
+            {
+                tb.Text = input;
+            }
+        }
 
 	    private void Loader_Load(object sender, EventArgs e)
 	    {

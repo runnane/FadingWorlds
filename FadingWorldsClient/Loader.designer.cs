@@ -168,6 +168,6 @@ namespace FadingWorldsClient
 		private System.Windows.Forms.Label label2;
 		private System.Windows.Forms.Label label3;
         private Label label4;
-        private TextBox txtServerVersion;
+        internal TextBox txtServerVersion;
 	}
 }

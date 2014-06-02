@@ -171,6 +171,7 @@ namespace FadingWorldsClient
                     {
                         case PayloadCommand.AuthPlease:
                             Log("Starting auth against server with version " + payload.Params[0]);
+                            TheLoader.ThreadSafeSet(payload.Params[0], TheLoader.txtServerVersion);
                             if (_loggedInUser == null)
                             {
                                 SendPayload(new NetworkPayload
@@ -564,8 +565,8 @@ namespace FadingWorldsClient
                     if (mob != null)
                     {
                         mob.MoveTo(new Position2D(mobCol, mobRow));
-                        Log(DateTime.Now.ToLongTimeString() + "MOVEMENT: " + mobId + " moved to " + mobCol + "x" +
-                            mobRow);
+                        //Log(DateTime.Now.ToLongTimeString() + "MOVEMENT: " + mobId + " moved to " + mobCol + "x" +
+                        //    mobRow);
                     }
                     else
                     {
